@@ -13,6 +13,7 @@ import sqlite3 as lite
 from pandas.io import sql
 from org.tradesafe.utils import utils
 from org.tradesafe.data.index_code_conf import indices
+from org.tradesafe.utils.memo import Memo
 import pandas as pd
 import tushare as ts
 from urllib2 import Request, urlopen
@@ -156,13 +157,17 @@ class HistoryData(object):
         start:开始时间 yyyyMMdd
         end:结束时间 yyyyMMdd
         '''
+        Memo.load()
+        end_memo = 'all_index_end'
         if start == None:
-            
-            start = datetime.today().date() + timedelta(days=-365)
-            start = start.strftime('%Y%m%d')
+            start = Memo.memory.get(end_memo)
+            if start == None:
+                start = datetime.today().date() + timedelta(days=-365)
+                start = start.strftime('%Y%m%d')
         if end == None:
             end = datetime.today().date().strftime('%Y%m%d')
-            
+        if int(end)<= int(start):
+            return None
         path = os.path.join(self.dataDir, 'history-index')
         utils.mkdirs(path)
         dic = {}
@@ -171,6 +176,8 @@ class HistoryData(object):
             res = Request(url)
             text = urlopen(res, timeout=10).read()
             text = text.decode('GBK')
+            if len(text)< 20:
+                continue
             j = demjson.decode(text, 'utf-8')
             head = ['date','open','close','change','pchange','low','heigh', 'vibration','volume','amount']#日期    开盘    收盘    涨跌额    涨跌幅    最低    最高    成交量(手)    成交金额(万)     
             data = []
@@ -183,8 +190,8 @@ class HistoryData(object):
                 df.to_csv(os.path.join(path,code+'.csv'), index=False, encoding='utf-8')
                 dic[code] = df
                 
-                cnx = lite.connect('data.db')
-                sql_df=df.loc[:,:]
+#                 cnx = lite.connect('data.db')
+#                 sql_df=df.loc[:,:]
 
                 #將 sql_df 資料寫入 Table名稱 Daily_Record 內
                 
@@ -196,7 +203,8 @@ class HistoryData(object):
 #                 sql.write_frame(sql_df, name='all_index', con=cnx, if_exists='replace')
                 #if_exists 選擇 appnd 是 Daily_Record 這個 table 已存在資料庫 將 sql_df 的資料 Insert 進去
 #                 sql.write_frame(sql_df, name='all_index', con=cnx, if_exists='append')
-                break
+        Memo.memory[end_memo] = end
+        Memo.save()
         return df
         
     
