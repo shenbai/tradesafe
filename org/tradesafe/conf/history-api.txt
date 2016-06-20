@@ -1,0 +1,4 @@
+深交所:
+http://table.finance.yahoo.com/table.csv?s=000001.sz
+上交所:
+http://table.finance.yahoo.com/table.csv?s=600000.ss

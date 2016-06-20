@@ -8,12 +8,14 @@ from datetime import datetime, date, timedelta
 import os
 
 # from pandas.core.series import Series
-from sqlalchemy import create_engine
+# from sqlalchemy import create_engine
 import sqlite3 as lite
 from pandas.io import sql
 from org.tradesafe.utils import utils
 from org.tradesafe.data.index_code_conf import indices
+from org.tradesafe.conf import config
 from org.tradesafe.utils.memo import Memo
+from org.tradesafe.db import sqlite_db as db
 import pandas as pd
 import tushare as ts
 from urllib2 import Request, urlopen
@@ -28,7 +30,7 @@ class HistoryData(object):
     ALL_STOCK_FILE='all_stock.csv'
     ALL_STOCK_BASICS_FILE = 'all_stock_basics.csv'
     ALL_INDEX_FILE = 'all_index.csv'
-    
+
     def __init__(self, dataDir='.'):
         self.dataDir = dataDir
         utils.mkdirs(self.dataDir)
@@ -49,7 +51,7 @@ class HistoryData(object):
             if not df.empty:
                 df.to_csv(all_stock, index=True, encoding='utf-8', index_label='code')
             return df
-    
+
     def get_all_stock_basics(self, useLocal=True):
         '''
         所有股票的基本数据
@@ -82,21 +84,21 @@ class HistoryData(object):
             if not df.empty:
                 df.to_csv(all_stock, index=True, encoding='utf-8', index_label='code')
             return df
-        
+
     def get_all_stock_code(self):
         '''
         返回全部股票代码
         '''
         df = self.get_all_stock(True);
         return df['code']
-    
+
 #     def get_all_tick_data(self):
 #         for code in self.get_all_stock_code():
 #             df = ts.get_tick_data(code, '2016-06-15', 3, 1)
 #             con =  create_engine('sqlite:////home/tack/stock/historydata.db?charset=utf-8', echo=True)
 #             df.to_sql('tick_data', con)
 #             break
-    
+
     def get_all_day_hist(self):
         '''
         获取近3年不复权的历史k线数据
@@ -110,7 +112,7 @@ class HistoryData(object):
                 df.to_csv(os.path.join(path,code+'.csv'), index=True, encoding='utf-8')
                 dic[code] = df
         return dic
-            
+
     def get_all_day_hist_restoration(self):
         '''
         获取前复权的历史k线数据
@@ -124,7 +126,7 @@ class HistoryData(object):
                 df.to_csv(os.path.join(path,code+'.csv'), index=True, encoding='utf-8')
                 dic[code] = df
         return dic
-    
+
     def get_all_history_tick(self, days=1):
         '''
         历史分笔数据
@@ -154,8 +156,8 @@ class HistoryData(object):
 
     def get_all_index(self, start=None, end=None):
         '''
-        start:开始时间 yyyyMMdd
-        end:结束时间 yyyyMMdd
+        start:开始时间 yyyyMMdd，空则取一年前日期
+        end:结束时间 yyyyMMdd，空则取当前日期
         '''
         Memo.load()
         end_memo = 'all_index_end'
@@ -166,20 +168,20 @@ class HistoryData(object):
                 start = start.strftime('%Y%m%d')
         if end == None:
             end = datetime.today().date().strftime('%Y%m%d')
+        print start, end
         if int(end)<= int(start):
             return None
-        path = os.path.join(self.dataDir, 'history-index')
-        utils.mkdirs(path)
         dic = {}
+        conn = db.get_day_history_db()
         for code in indices.keys():
             url = 'http://q.stock.sohu.com/hisHq?code=%s&start=%s&end=%s&stat=1&order=D&period=d' % (code, start, end)
             res = Request(url)
             text = urlopen(res, timeout=10).read()
             text = text.decode('GBK')
-            if len(text)< 20:
+            if len(text)< 40:
                 continue
             j = demjson.decode(text, 'utf-8')
-            head = ['date','open','close','change','pchange','low','heigh', 'vibration','volume','amount']#日期    开盘    收盘    涨跌额    涨跌幅    最低    最高    成交量(手)    成交金额(万)     
+            head = ['date','open','close','change','pchange','low','heigh', 'vibration','volume','amount']#日期    开盘    收盘    涨跌额    涨跌幅    最低    最高    成交量(手)    成交金额(万)
             data = []
             for x in j[0].get('hq'):
                 m = tuple(x)
@@ -187,34 +189,25 @@ class HistoryData(object):
             df = pd.DataFrame(data, columns=head)
             if not df.empty:
                 df.insert(1, 'code', code)
-                df.to_csv(os.path.join(path,code+'.csv'), index=False, encoding='utf-8')
+                # df.to_csv(os.path.join(path,code+'.csv'), index=False, encoding='utf-8')
                 dic[code] = df
-                
-#                 cnx = lite.connect('data.db')
-#                 sql_df=df.loc[:,:]
-
-                #將 sql_df 資料寫入 Table名稱 Daily_Record 內
-                
-                #if_exists 預設為 failed 新建一個 Daily_Record table 並寫入 sql_df資料
-#                 sql.write_frame(sql_df, name='all_index', con=cnx)
-                
-                #if_exists 選擇 replace 是Daily_Record 這個 table 已存在資料庫
-                #將Daily_Record 表刪除並重新創建 寫入 sql_df 的資料
-#                 sql.write_frame(sql_df, name='all_index', con=cnx, if_exists='replace')
-                #if_exists 選擇 appnd 是 Daily_Record 這個 table 已存在資料庫 將 sql_df 的資料 Insert 進去
-#                 sql.write_frame(sql_df, name='all_index', con=cnx, if_exists='append')
+                try:
+                    sql_df=df.loc[:,:]
+                    sql.to_sql(sql_df, name='all_index', con=conn, if_exists='append')
+                except Exception, e:
+                    print e
         Memo.memory[end_memo] = end
         Memo.save()
         return df
-        
-    
+
+
     def get_frist_day(self, code):
         '''
         上市日期
         '''
         df = self.get_all_stock_basics()
-        return df.ix[code]['timeToMarket'] 
-    
+        return df.ix[code]['timeToMarket']
+
 if __name__ == '__main__':
     hd = HistoryData('/home/tack/stock')
 #     df = hd.get_all_stock()
@@ -231,8 +224,4 @@ if __name__ == '__main__':
 #     from org.tradesafe.data.history_data import HistoryData
 #     hd.get_all_history_tick(365)
     hd.get_all_index()
-    
-    
-    
-    
-    
+
