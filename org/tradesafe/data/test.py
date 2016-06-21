@@ -51,3 +51,21 @@ if __name__ == '__main__':
 #     hd.get_all_index(code, start, end)
 
 
+from pyquery import PyQuery as pq
+# from lxml import etree
+import urllib
+from bs4 import BeautifulSoup
+# d = pq(url='http://data.10jqka.com.cn/market/dzjy/field/enddate/order/desc/page/1/ajax/1/')
+page = urllib.urlopen('http://data.10jqka.com.cn/market/dzjy/field/enddate/order/desc/page/1/ajax/1/').read()
+# BeautifulSoup在解析utf-8编码的网页时，如果不指定fromEncoding或者将fromEncoding指定为utf-8会出现中文乱码的现象。
+# 解决此问题的方法是将Beautifulsoup构造函数中的fromEncoding参数的值指定为：gb18030
+soup = BeautifulSoup(page, from_encoding="gb18030")
+for tr in soup.select('tr'):
+    print '###'
+#     print tr
+#     for td in tr.select('td'):
+#         print '$$$$'
+    if len(tr.select('td')) > 0:
+        print tr.select('td')[8].get_text()
+#         print type(tr.select('td')[1])
+#     print type(tr.select('td'))
