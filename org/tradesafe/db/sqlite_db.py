@@ -21,6 +21,8 @@ def get_tasks_db():
 
 if __name__ == '__main__':
     print config.history_day_data_db_file
-    get_tasks_db().close()
-    get_day_history_db().close()
-    get_tick_history_db().close()
+    # get_tasks_db().close()
+    # get_day_history_db().close()
+    # get_tick_history_db().close()
+    con = get_day_history_db()
+    con.execute(config.IDX_ALL_INDEX_)

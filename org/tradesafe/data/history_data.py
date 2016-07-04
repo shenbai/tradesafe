@@ -99,18 +99,36 @@ class HistoryData(object):
 #             df.to_sql('tick_data', con)
 #             break
 
-    def get_all_day_hist(self):
+    def get_all_history_data_day(self):
         '''
         获取近3年不复权的历史k线数据
         '''
         path = os.path.join(self.dataDir, 'history-day')
         utils.mkdirs(path)
+        end_memo = 'history_data_end'
+        Memo.load()
+        start = Memo.memory.get(end_memo)
+        print start
+        conn = db.get_day_history_db()
         dic = {}
         for code in self.get_all_stock_code():
             df = ts.get_hist_data(code)
-            if not df.empty:
-                df.to_csv(os.path.join(path,code+'.csv'), index=True, encoding='utf-8')
+            print df
+            if None != df and not df.empty:
+                # df.to_csv(os.path.join(path,code+'.csv'), index=True, encoding='utf-8')
                 dic[code] = df
+                try:
+                    sql_df=df.loc[:,:]
+                    sql.to_sql(sql_df, name='all_history_data_day', con=conn, if_exists='append')
+                except Exception, e:
+                    print e
+        if start == None:
+            start = datetime.today().date() + timedelta(days=-365)
+            start = start.strftime('%Y-%m-%d')
+
+        Memo.memory[end_memo] = start
+        Memo.save()
+        print 'ok'
         return dic
 
     def get_all_day_hist_restoration(self):
@@ -223,5 +241,6 @@ if __name__ == '__main__':
 #     print now - datetime.now()
 #     from org.tradesafe.data.history_data import HistoryData
 #     hd.get_all_history_tick(365)
-    hd.get_all_index()
+    # hd.get_all_index()
+    hd.get_all_history_data_day()
 
