@@ -1,5 +1,24 @@
 # coding: utf-8
 
+#历史数据
+history_api = 'http://q.stock.sohu.com/hisHq?code=cn_600153&start=20141010&end=20160620&stat=1&order=D&period=d'
+
+# 历史大单数据
+history_bill = 'http://vip.stock.finance.sina.com.cn/quotes_service/view/cn_bill_download.php?symbol=sh600000&num=6000&page=1&sort=ticktime&asc=0&volume=40000&amount=0&type=0&day=2016-06-20'
+
+# 内部交易
+nbjy_api = 'http://vip.stock.finance.sina.com.cn/q/go.php/vInvestConsult/kind/nbjy/index.phtml?bdate=2016-05-01&edate=2016-06-20&num=600'
+# http://q.stock.sohu.com/app2/rpsholder.up
+# http://q.stock.sohu.com/app2/rpsholder.up?code=002551&sd=2015-12-20&ed=2016-6-20&type=date&dir=1
+#融资融券
+# http://q.stock.sohu.com/app2/mpssTrade.up?code=000001&sd=2016-6-13&ed=2016-6-20
+# http://data.10jqka.com.cn/market/rzrq/
+
+#大宗交易
+# http://data.10jqka.com.cn/market/dzjy/field/enddate/order/desc/page/1/ajax/1/
+#资金流向
+# http://data.10jqka.com.cn/funds/gnzjl/###
+
 indices = {
     'zs_000001': '上证指数',
     'zs_000002': 'Ａ股指数',
