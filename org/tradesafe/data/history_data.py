@@ -7,9 +7,6 @@ Created on 2016年6月19日
 from datetime import datetime, date, timedelta
 import os
 
-# from pandas.core.series import Series
-# from sqlalchemy import create_engine
-import sqlite3 as lite
 from pandas.io import sql
 from org.tradesafe.utils import utils
 from org.tradesafe.data.index_code_conf import indices
@@ -26,14 +23,9 @@ class HistoryData(object):
     '''
     历史数据获取
     '''
-    dataDir = '.' #数据存储目录
-    ALL_STOCK_FILE='all_stock.csv'
-    ALL_STOCK_BASICS_FILE = 'all_stock_basics.csv'
-    ALL_INDEX_FILE = 'all_index.csv'
 
     def __init__(self, dataDir='.'):
-        self.dataDir = dataDir
-        utils.mkdirs(self.dataDir)
+        pass
 
     def get_all_stock(self, useLocal=True):
         '''
@@ -76,22 +68,22 @@ class HistoryData(object):
                timeToMarket,上市日期
         '''
         conn = db.get_day_history_db()
-
-        all_stock = os.path.join(self.dataDir, self.ALL_STOCK_BASICS_FILE)
-        if os.path.exists(all_stock) and useLocal:
-            df = pd.read_csv(all_stock, dtype={'code':str})
-            df = df.set_index(keys=df['code'])
-            return df
-        else:
-            df = ts.get_stock_basics()
-            if not df.empty:
-                df.to_csv(all_stock, index=True, encoding='utf-8', index_label='code')
-                try:
-                    sql_df=df
-                    sql.to_sql(sql_df, name='stock_basics', con=conn, index=False, if_exists='append')
-                except Exception, e:
-                    print e
-            return df
+        conn.text_factory = str
+        df = None
+        if useLocal:
+            try:
+                df = pd.read_sql_query('select * from stock_basics where [timeToMarket] !=0', conn)
+                return df
+            except Exception, e:
+                print e
+        df = ts.get_stock_basics()
+        if not df.empty:
+            try:
+                sql_df=df.loc[:,:]
+                sql.to_sql(sql_df, name='stock_basics', con=conn, index=True, if_exists='replace')
+            except Exception, e:
+                print e
+        return df
 
     def get_all_stock_code(self):
         '''
@@ -188,12 +180,17 @@ class HistoryData(object):
         '''
         conn = db.get_day_history_db()
         if start == None:
-            onerow = conn.execute(config.sql_last_date_index_all).fetchone()
-            if onerow != None:
-                start = onerow[0].replace('-', '')
-            else:
+            try:
+                onerow = conn.execute(config.sql_last_date_index_all).fetchone()
+                if onerow != None:
+                    start = onerow[0].replace('-', '')
+                else:
+                    start = datetime.today().date() + timedelta(days=-365)
+                    start = start.strftime('%Y%m%d')
+            except Exception, e:
                 start = datetime.today().date() + timedelta(days=-365)
                 start = start.strftime('%Y%m%d')
+                
         if end == None:
             end = datetime.today().date().strftime('%Y%m%d')
         print start, end
@@ -249,10 +246,13 @@ if __name__ == '__main__':
 #     print now - datetime.now()
 #     from org.tradesafe.data.history_data import HistoryData
 #     hd.get_all_history_tick(365)
-    hd.download_all_index_history()
-    df = hd.get_all_index_history()
-    print df.head()
-    # print hd.get_all_stock_basics()
+#     hd.download_all_index_history()
+#     df = hd.get_all_index_history()
+#     print df.head()
+    df = hd.get_all_stock_basics()
+#     print df.loc[:,df['timeToMarket']>0]
+    print len(df)
+    print len(df.loc[df.timeToMarket>0,:])
     # hd.get_all_history_data_day()
     # df = ts.get_stock_basics()
     # print df.head()
