@@ -2,6 +2,8 @@
 
 import org.tradesafe.conf.config as config
 from org.tradesafe.utils import utils
+from pandas.io import sql
+import pandas as pd
 import sqlite3
 
 
@@ -25,4 +27,11 @@ if __name__ == '__main__':
     # get_day_history_db().close()
     # get_tick_history_db().close()
     con = get_day_history_db()
-    con.execute(config.IDX_ALL_INDEX_)
+    # con.execute(config.IDX_ALL_INDEX_)
+    cur = con.execute(config.sql_last_date_index_all)
+    print cur.fetchone()
+    cur = con.execute('select count(*) from all_index')
+    print cur.fetchone()[0]
+    # df = pd.read_sql_query('select * from all_index', con)
+    # print len(df.values)
+    # print type(df.axes[0])

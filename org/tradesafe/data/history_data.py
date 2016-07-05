@@ -55,6 +55,7 @@ class HistoryData(object):
     def get_all_stock_basics(self, useLocal=True):
         '''
         所有股票的基本数据
+        useLocal:本地数据库的数据或者远程下载的数据
         return
         DataFrame
                code,代码
@@ -74,6 +75,8 @@ class HistoryData(object):
                pb,市净率
                timeToMarket,上市日期
         '''
+        conn = db.get_day_history_db()
+
         all_stock = os.path.join(self.dataDir, self.ALL_STOCK_BASICS_FILE)
         if os.path.exists(all_stock) and useLocal:
             df = pd.read_csv(all_stock, dtype={'code':str})
@@ -83,6 +86,11 @@ class HistoryData(object):
             df = ts.get_stock_basics()
             if not df.empty:
                 df.to_csv(all_stock, index=True, encoding='utf-8', index_label='code')
+                try:
+                    sql_df=df
+                    sql.to_sql(sql_df, name='stock_basics', con=conn, index=False, if_exists='append')
+                except Exception, e:
+                    print e
             return df
 
     def get_all_stock_code(self):
@@ -112,6 +120,7 @@ class HistoryData(object):
         conn = db.get_day_history_db()
         dic = {}
         for code in self.get_all_stock_code():
+            print code
             df = ts.get_hist_data(code)
             print df
             if None != df and not df.empty:
@@ -119,7 +128,7 @@ class HistoryData(object):
                 dic[code] = df
                 try:
                     sql_df=df.loc[:,:]
-                    sql.to_sql(sql_df, name='all_history_data_day', con=conn, if_exists='append')
+                    sql.to_sql(sql_df, name='all_history_data_day', con=conn, index=False, if_exists='append')
                 except Exception, e:
                     print e
         if start == None:
@@ -168,20 +177,21 @@ class HistoryData(object):
                 alldf = alldf.append(df[::])
                 lasty = lasty + timedelta(+1)
             if not alldf.empty:
-                alldf.to_csv(os.path.join(path,code+'.csv'), index=True, encoding='utf-8')
+                alldf.to_csv(os.path.join(path,code+'.csv'), index=False, encoding='utf-8')
                 dic[code] = alldf
         return alldf
 
-    def get_all_index(self, start=None, end=None):
+    def download_all_index_history(self, start=None, end=None):
         '''
-        start:开始时间 yyyyMMdd，空则取一年前日期
+        start:开始时间 yyyyMMdd，第一次调用空则取一年前日期，之后以数据表中最近时间为准
         end:结束时间 yyyyMMdd，空则取当前日期
         '''
-        Memo.load()
-        end_memo = 'all_index_end'
+        conn = db.get_day_history_db()
         if start == None:
-            start = Memo.memory.get(end_memo)
-            if start == None:
+            onerow = conn.execute(config.sql_last_date_index_all).fetchone()
+            if onerow != None:
+                start = onerow[0].replace('-', '')
+            else:
                 start = datetime.today().date() + timedelta(days=-365)
                 start = start.strftime('%Y%m%d')
         if end == None:
@@ -189,8 +199,6 @@ class HistoryData(object):
         print start, end
         if int(end)<= int(start):
             return None
-        dic = {}
-        conn = db.get_day_history_db()
         for code in indices.keys():
             url = 'http://q.stock.sohu.com/hisHq?code=%s&start=%s&end=%s&stat=1&order=D&period=d' % (code, start, end)
             res = Request(url)
@@ -207,17 +215,17 @@ class HistoryData(object):
             df = pd.DataFrame(data, columns=head)
             if not df.empty:
                 df.insert(1, 'code', code)
-                # df.to_csv(os.path.join(path,code+'.csv'), index=False, encoding='utf-8')
-                dic[code] = df
                 try:
                     sql_df=df.loc[:,:]
-                    sql.to_sql(sql_df, name='all_index', con=conn, if_exists='append')
+                    sql.to_sql(sql_df, name='all_index', con=conn, index=False, if_exists='append')
                 except Exception, e:
                     print e
-        Memo.memory[end_memo] = end
-        Memo.save()
         return df
 
+    def get_all_index_history(self):
+        con = db.get_day_history_db()
+        df = pd.read_sql_query('select * from all_index', con)
+        return df
 
     def get_frist_day(self, code):
         '''
@@ -241,6 +249,11 @@ if __name__ == '__main__':
 #     print now - datetime.now()
 #     from org.tradesafe.data.history_data import HistoryData
 #     hd.get_all_history_tick(365)
-    # hd.get_all_index()
-    hd.get_all_history_data_day()
+    hd.download_all_index_history()
+    df = hd.get_all_index_history()
+    print df.head()
+    # print hd.get_all_stock_basics()
+    # hd.get_all_history_data_day()
+    # df = ts.get_stock_basics()
+    # print df.head()
 
