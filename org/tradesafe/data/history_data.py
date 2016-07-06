@@ -89,47 +89,34 @@ class HistoryData(object):
         '''
         返回全部股票代码
         '''
-        df = self.get_all_stock(True);
+        df = self.get_all_stock_basics();
         return df['code']
 
-#     def get_all_tick_data(self):
-#         for code in self.get_all_stock_code():
-#             df = ts.get_tick_data(code, '2016-06-15', 3, 1)
-#             con =  create_engine('sqlite:////home/tack/stock/historydata.db?charset=utf-8', echo=True)
-#             df.to_sql('tick_data', con)
-#             break
-
-    def get_all_history_data_day(self):
+    def get_history_data_day(self):
         '''
         获取近3年不复权的历史k线数据
         '''
-        path = os.path.join(self.dataDir, 'history-day')
-        utils.mkdirs(path)
-        end_memo = 'history_data_end'
-        Memo.load()
-        start = Memo.memory.get(end_memo)
-        print start
+        start = None
         conn = db.get_day_history_db()
         dic = {}
+        try:
+            row = conn.execute('select date from history_data_day order by date([date]) desc limit 1').fetchone()
+            start = row[0]
+            dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
+            start = datetime.strftime(dt, '%Y-%m-%d')
+        except Exception, e:
+            print e
+        print start
         for code in self.get_all_stock_code():
-            print code
-            df = ts.get_hist_data(code)
-            print df
-            if None != df and not df.empty:
-                # df.to_csv(os.path.join(path,code+'.csv'), index=True, encoding='utf-8')
+            df = ts.get_hist_data(code=code, start = start)
+            if df is not None:
                 dic[code] = df
+                df.insert(0, 'code', code)
                 try:
                     sql_df=df.loc[:,:]
-                    sql.to_sql(sql_df, name='all_history_data_day', con=conn, index=False, if_exists='append')
+                    sql.to_sql(sql_df, name='history_data_day', con=conn, index=True, if_exists='append')
                 except Exception, e:
                     print e
-        if start == None:
-            start = datetime.today().date() + timedelta(days=-365)
-            start = start.strftime('%Y-%m-%d')
-
-        Memo.memory[end_memo] = start
-        Memo.save()
-        print 'ok'
         return dic
 
     def get_all_day_hist_restoration(self):
@@ -190,7 +177,7 @@ class HistoryData(object):
             except Exception, e:
                 start = datetime.today().date() + timedelta(days=-365)
                 start = start.strftime('%Y%m%d')
-                
+
         if end == None:
             end = datetime.today().date().strftime('%Y%m%d')
         print start, end
@@ -251,9 +238,8 @@ if __name__ == '__main__':
 #     print df.head()
     df = hd.get_all_stock_basics()
 #     print df.loc[:,df['timeToMarket']>0]
-    print len(df)
-    print len(df.loc[df.timeToMarket>0,:])
-    # hd.get_all_history_data_day()
+    # print len(df)
+    # print len(df.loc[df.timeToMarket>0,:])
     # df = ts.get_stock_basics()
     # print df.head()
-
+    hd.get_history_data_day()
