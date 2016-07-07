@@ -27,23 +27,6 @@ class HistoryData(object):
     def __init__(self, dataDir='.'):
         pass
 
-    def get_all_stock(self, useLocal=True):
-        '''
-        所有股票的最近一日交易数据
-        return
-        DataFrame
-        属性：代码，名称，涨跌幅，现价，开盘价，最高价，最低价，最日收盘价，成交量，换手率，成交额，市盈率，市净率，总市值，流通市值
-        '''
-        all_stock = os.path.join(self.dataDir, self.ALL_STOCK_FILE)
-        if os.path.exists(all_stock) and useLocal:
-            df = pd.read_csv(all_stock, dtype={'code':str, 'changepercent':float})
-            return df
-        else:
-            df = ts.get_today_all( );
-            if not df.empty:
-                df.to_csv(all_stock, index=True, encoding='utf-8', index_label='code')
-            return df
-
     def get_all_stock_basics(self, useLocal=True):
         '''
         所有股票的基本数据
@@ -67,7 +50,7 @@ class HistoryData(object):
                pb,市净率
                timeToMarket,上市日期
         '''
-        conn = db.get_day_history_db()
+        conn = db.get_history_data_db()
         conn.text_factory = str
         df = None
         if useLocal:
@@ -92,15 +75,15 @@ class HistoryData(object):
         df = self.get_all_stock_basics();
         return df['code']
 
-    def get_history_data_day(self):
+    def download_history_data_day(self, ktype='D'):
         '''
         获取近3年不复权的历史k线数据
         '''
         start = None
-        conn = db.get_day_history_db()
+        conn = db.get_history_data_db(ktype)
         dic = {}
         try:
-            row = conn.execute('select date from history_data_day order by date([date]) desc limit 1').fetchone()
+            row = conn.execute(config.sql_last_date_history_data).fetchone()
             start = row[0]
             dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
             start = datetime.strftime(dt, '%Y-%m-%d')
@@ -108,16 +91,28 @@ class HistoryData(object):
             print e
         print start
         for code in self.get_all_stock_code():
-            df = ts.get_hist_data(code=code, start = start)
+            df = ts.get_hist_data(code=code, start=start, ktype=ktype)
             if df is not None:
                 dic[code] = df
                 df.insert(0, 'code', code)
                 try:
                     sql_df=df.loc[:,:]
-                    sql.to_sql(sql_df, name='history_data_day', con=conn, index=True, if_exists='append')
+                    sql.to_sql(sql_df, name='history_data', con=conn, index=True, if_exists='append')
                 except Exception, e:
                     print e
         return dic
+
+    def get_history_data_day(self, ktype='D'):
+        '''
+        从sqlite中加载历史k线数据
+        '''
+        conn = db.get_history_data_db(ktype)
+        try:
+            df = pd.read_sql_query('select * from history_data', conn)
+            return df
+        except Exception, e:
+            print e
+        return None
 
     def get_all_day_hist_restoration(self):
         '''
@@ -165,12 +160,14 @@ class HistoryData(object):
         start:开始时间 yyyyMMdd，第一次调用空则取一年前日期，之后以数据表中最近时间为准
         end:结束时间 yyyyMMdd，空则取当前日期
         '''
-        conn = db.get_day_history_db()
+        conn = db.get_history_data_db()
         if start == None:
             try:
                 onerow = conn.execute(config.sql_last_date_index_all).fetchone()
                 if onerow != None:
-                    start = onerow[0].replace('-', '')
+                    start = onerow[0]
+                    dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
+                    start = datetime.strftime(dt, '%Y%m%d')
                 else:
                     start = datetime.today().date() + timedelta(days=-365)
                     start = start.strftime('%Y%m%d')
@@ -207,8 +204,8 @@ class HistoryData(object):
         return df
 
     def get_all_index_history(self):
-        con = db.get_day_history_db()
-        df = pd.read_sql_query('select * from all_index', con)
+        con = db.get_history_data_db()
+        df = pd.read_sql_query('select * from all_index order by date desc', con)
         return df
 
     def get_frist_day(self, code):
@@ -220,26 +217,13 @@ class HistoryData(object):
 
 if __name__ == '__main__':
     hd = HistoryData('/home/tack/stock')
-#     df = hd.get_all_stock()
-# #     print df.dtypes
-#     codes = hd.get_all_stock_code()
-#     assert len(codes) == len(df)
-#     dic = df.to_dict()
-#     now = datetime.now()
-#     df = hd.get_all_stock_basics()
-#     print df.head()
-# #     hd.get_all_day_hist()
-# #     hd.get_all_day_hist_restoration()
-#     print now - datetime.now()
-#     from org.tradesafe.data.history_data import HistoryData
-#     hd.get_all_history_tick(365)
-#     hd.download_all_index_history()
-#     df = hd.get_all_index_history()
-#     print df.head()
-    df = hd.get_all_stock_basics()
-#     print df.loc[:,df['timeToMarket']>0]
+    hd.get_all_stock_basics()
+    hd.download_all_index_history()
+    df = hd.get_all_index_history()
+    print df.head()
+    # df = hd.get_all_stock_basics()
     # print len(df)
     # print len(df.loc[df.timeToMarket>0,:])
     # df = ts.get_stock_basics()
     # print df.head()
-    hd.get_history_data_day()
+    hd.download_history_data_day(ktype='60')
