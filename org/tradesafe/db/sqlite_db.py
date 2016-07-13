@@ -32,6 +32,11 @@ def get_tick_history_db():
     return sqlite3.connect(config.history_tick_data_db_file)
 
 
+def get_dd_data_db():
+    utils.mkdirs(config.data_dir)
+    return sqlite3.connect(config.dd_data_db_file)
+
+
 def get_tasks_db():
     utils.mkdirs(config.data_dir)
     return sqlite3.connect(config.tasks_db_file)

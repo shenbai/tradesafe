@@ -9,6 +9,7 @@ history_30m_data_db_file = data_dir + '/history_data_30m.db'
 history_60m_data_db_file = data_dir + '/history_data_60m.db'
 history_tick_data_db_file = data_dir + '/history_data_tick.db'
 tasks_db_file = data_dir + '/task.db'
+dd_data_db_file = data_dir + '/dd_data.db'
 memo_file = data_dir + '.memo'
 
 IDX_ALL_INDEX_ = '''

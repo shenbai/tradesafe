@@ -18,6 +18,12 @@ import tushare as ts
 from urllib2 import Request, urlopen
 import demjson
 
+import logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
+                    datefmt='%a, %d %b %Y %H:%M:%S',
+                    filename='historydown.log')
+
 
 class HistoryData(object):
     '''
@@ -108,7 +114,7 @@ class HistoryData(object):
         '''
         conn = db.get_history_data_db(ktype)
         try:
-            df = pd.read_sql_query('select * from history_data', conn)
+            df = pd.read_sql_query('select * from history_data order by code, date([date]) asc', conn)
             return df
         except Exception, e:
             print e
@@ -205,7 +211,7 @@ class HistoryData(object):
 
     def get_all_index_history(self):
         con = db.get_history_data_db()
-        df = pd.read_sql_query('select * from all_index order by date desc', con)
+        df = pd.read_sql_query('select * from all_index order by code, date([date]) asc', con)
         return df
 
     def get_frist_day(self, code):
@@ -215,15 +221,52 @@ class HistoryData(object):
         df = self.get_all_stock_basics()
         return df.ix[code]['timeToMarket']
 
+    def download_dd_data(self, start=None):
+        '''
+        获取大单数据
+        '''
+        conn = db.get_dd_data_db()
+        dic = {}
+        try:
+            row = conn.execute(config.sql_last_date_dd_data).fetchone()
+            start = row[0]
+            dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
+            # start = datetime.strftime(dt, '%Y-%m-%d')
+            start = dt
+        except Exception, e:
+            start = datetime.today().date() + timedelta(days=-365)
+            # start = start.strftime('%Y%m%d')
+            print e
+        print start
+        for code in self.get_all_stock_code():
+            # df = ts.get_hist_data(code=code, start=start, ktype=ktype)
+            end = datetime.today().date()
+            while start < end:
+                date = end.strftime('%Y-%m-%d')
+                df = ts.get_sina_dd(code=code, date=date, vol=500)
+                if df is not None:
+                    dic[code] = df
+                    df.insert(0, 'code', code)
+                    try:
+                        sql_df=df.loc[:,:]
+                        sql.to_sql(sql_df, name='dd_data', con=conn, index=True, if_exists='append')
+                    except Exception, e:
+                        logging.error('download error:%s,%s' % (code,date))
+                        print e
+                    pass
+            start = start + timedelta(days=1)
+        return dic
+
 if __name__ == '__main__':
     hd = HistoryData('/home/tack/stock')
-    hd.get_all_stock_basics()
-    hd.download_all_index_history()
-    df = hd.get_all_index_history()
-    print df.head()
+    # hd.get_all_stock_basics()
+    # hd.download_all_index_history()
+    # df = hd.get_all_index_history()
+    # print df.head()
     # df = hd.get_all_stock_basics()
     # print len(df)
     # print len(df.loc[df.timeToMarket>0,:])
     # df = ts.get_stock_basics()
     # print df.head()
-    hd.download_history_data_day(ktype='60')
+    hd.download_history_data_day(ktype='D')
+    # hd.download_dd_data()
