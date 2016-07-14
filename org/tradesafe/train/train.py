@@ -25,8 +25,9 @@ def create_lagged_series(symbol, start_date, end_date, lags=5):
     # Obtain stock information from Yahoo Finance
     ts = DataReader(symbol, "yahoo", start_date -
                     datetime.timedelta(days=365), end_date)
-    print ts
+    # print ts
     # Create the new lagged DataFrame
+    print len(ts)
     tslag = pd.DataFrame(index=ts.index)
     tslag["Today"] = ts["Adj Close"]
     tslag["Volume"] = ts["Volume"]
@@ -63,7 +64,6 @@ def fit_model(name, model, X_train, y_train, X_test, pred):
     """Fits a classification model (for our purposes this is LR, LDA and QDA)
     using the training data, then makes a prediction and subsequent "hit rate"
     for the test data."""
-
     # Fit and predict the model on the training, and then test, data
     model.fit(X_train, y_train)
     pred[name] = model.predict(X_test)
@@ -78,7 +78,6 @@ if __name__ == "__main__":
     # Create a lagged series of the S&P500 US stock market index
     snpret = create_lagged_series("^GSPC", datetime.datetime(
         2010, 1, 10), datetime.datetime(2016, 6, 30), lags=5)
-    print len(snpret)
     # Use the prior two days of returns as predictor values, with direction as
     # the response
     X = snpret[["Lag1", "Lag2"]]

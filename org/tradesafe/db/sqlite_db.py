@@ -42,7 +42,7 @@ def get_tasks_db():
     return sqlite3.connect(config.tasks_db_file)
 
 if __name__ == '__main__':
-    print config.history_day_data_db_file
+    print config.sql_last_date_index_all
     # get_tasks_db().close()
     # get_history_data_db().close()
     # get_tick_history_db().close()
