@@ -11,7 +11,6 @@ from pandas.io import sql
 from org.tradesafe.utils import utils
 from org.tradesafe.data.index_code_conf import indices
 from org.tradesafe.conf import config
-from org.tradesafe.utils.memo import Memo
 from org.tradesafe.db import sqlite_db as db
 import pandas as pd
 import tushare as ts

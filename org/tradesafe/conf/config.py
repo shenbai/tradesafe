@@ -58,3 +58,4 @@ PRIMARY KEY ([date],[code])
 '''
 sql_last_date_index_all = 'select date from all_index order by date([date]) desc limit 1'
 sql_last_date_history_data = 'select date from history_data order by date([date]) desc limit 1'
+sql_last_date_dd_data = 'select date from dd_data order by date([date]) desc limit 1'
