@@ -107,13 +107,16 @@ class HistoryData(object):
                     print e
         return dic
 
-    def get_history_data_day(self, ktype='D'):
+    def get_history_data_day(self, ktype='D', endDate=None):
         '''
         从sqlite中加载历史k线数据
         '''
         conn = db.get_history_data_db(ktype)
         try:
-            df = pd.read_sql_query('select * from history_data order by code, date([date]) asc', conn)
+            if endDate is not None:
+                df = pd.read_sql_query(config.sql_history_data_by_date_lt % endDate, conn)
+            else:
+                df = pd.read_sql_query('select * from history_data order by code, date([date]) asc', conn)
             return df
         except Exception, e:
             print e
