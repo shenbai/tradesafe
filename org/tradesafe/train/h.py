@@ -57,9 +57,9 @@ for code in good:
             pchange = (predict-today)/today * 100
             diff = change - pchange
             t = (nextday-today) * (predict-today) > 0
-            if t and change > 3:
+            if t and pchange > 2:
                 trueNum = trueNum + 1
-            if change > 3:
+            if pchange > 2:
                 total = total + 1
                 print code, today, nextday, predict, (nextday-today) * (predict-today) > 0, '%0.3f' % change, '%0.3f' % pchange, '%0.3f' % diff
             mypred[code] = (code, today, nextday, predict, (nextday-today) * (predict-today) > 0, nextday-predict, change, pchange, diff)
