@@ -34,28 +34,27 @@ lags = 1
 # print len(df)
 split = 0.9
 
-start = time.clock()
-
 mdic = {}
+rng = np.random.RandomState(1)
+regr = AdaBoostRegressor(DecisionTreeRegressor(
+    max_depth=5), n_estimators=1000, random_state=rng, loss='square')
+num = 0
 for code in codes:
-    rng = np.random.RandomState(1)
-    regr = AdaBoostRegressor(DecisionTreeRegressor(
-        max_depth=5), n_estimators=1000, random_state=rng, loss='square')
     try:
         if code.startswith('30'):
             continue
         data = df[df['code'] == code].copy(deep=True)
         if len(data) < 400:
             continue
-        shift_1 = data['p_change'].shift(1)
-        # shift_1 = data['close'].shift(-1)
+        num += 1
+        # shift_1 = data['p_change'].shift(1)
+        shift_1 = data['close'].shift(-1)
         data['target'] = shift_1
         data = data[data['target'] > -1000]
         data.index = range(0, len(data))
         s = int(len(data) * split)
         train = data.ix[0:s, :]
         test = data.ix[s:, :]
-        print code, len(train), len(test)
         regr.fit(train.ix[:, 'code':'turnover'], train.ix[:, 'target'])
         y_pred = regr.predict(test.ix[:, 'code':'turnover'])
         mae = mean_absolute_error(test.ix[:, 'target'], y_pred)
@@ -63,7 +62,8 @@ for code in codes:
         r2 = r2_score(test.ix[:, 'target'], y_pred)
         res = pd.DataFrame()
         res['date'] = test['date']
-        res['close'] = test['p_change']
+        # res['close'] = test['p_change']
+        res['close'] = test['close']
         res['target'] = test['target']
         res['predict'] = y_pred
         # res['diff'] = res['real']-res['predict']
@@ -72,21 +72,24 @@ for code in codes:
         res['fp'] = res['change'] * res['pchange'] > 0
 
         rate = (float(len(res[res['fp'] == True])) / len(res))
-        print 'rate:%.04f' % rate
         # print regr.estimator_weights_
         # print X_train.head(3)
         # print y_train.head(3)
         # print regr.estimator_errors_
-        print 'error#mae:%.03f,mse:%.04f,r2:%.04f' % (mae, mse, r2)
-        print 'cost:%.03f s' % (time.clock() - start)
+        # print 'cost:%.03f s' % (time.clock() - start)
         pickle.dump(regr, open('%s/%s.pkl' % (config.model_dir, code), 'wb'))
         pUpData = res[res['pchange']>0]
         ptData = pUpData[pUpData['change']>0]
         # print upData
-        print len(ptData), len(pUpData), len(ptData)/float(len(pUpData))
+        # print code, len(train), len(test)
+        # print len(ptData), len(pUpData)
+        trate = len(ptData)/float(len(pUpData))
+        print 'NO.%d,%s,rate:%.04f,trate:%.04f,#mae:%.04f,mse:%.04f,r2:%.04f, %d, %d, %d, %d' % (
+            num, code,rate, trate, mae, mse, r2, len(train), len(test), len(ptData), len(pUpData)
+        )
         mdic[code] = (rate, mae, mse, r2)
     except Exception, e:
         pass
         print e
 
-print mdic
+# print mdic
