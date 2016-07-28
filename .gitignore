@@ -12,3 +12,7 @@
 hs_err_pid*
 /org/*.pyc
 *.pyc
+*.pyc
+*.pyc
+/org/tradesafe/conf/*.pyc
+*.pyc
