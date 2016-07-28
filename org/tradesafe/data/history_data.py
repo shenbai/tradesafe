@@ -16,12 +16,13 @@ import pandas as pd
 import tushare as ts
 from urllib2 import Request, urlopen
 import demjson
+from org.tradesafe.conf import config
 
 import logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S',
-                    filename='historydown.log')
+                    filename='%s/historydown.log' % config.log_dir)
 
 
 class HistoryData(object):

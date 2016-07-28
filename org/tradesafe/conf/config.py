@@ -1,5 +1,6 @@
 # coding: utf-8
 data_dir = '/home/tack/data'
+log_dir = '/home/tack/log'
 history_D_data_db_file = data_dir + '/history_data_D.db'
 history_W_data_db_file = data_dir + '/history_data_W.db'
 history_M_data_db_file = data_dir + '/history_data_M.db'
@@ -14,6 +15,7 @@ memo_file = data_dir + '.memo'
 model_dir = data_dir + '/models'
 from org.tradesafe.utils import utils
 utils.mkdirs(model_dir)
+utils.mkdirs(log_dir)
 
 IDX_ALL_INDEX_ = '''
 CREATE UNIQUE INDEX IF NOT EXISTS [IDX_ALL_INDEX_] ON [all_index](
