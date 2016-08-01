@@ -14,6 +14,7 @@ dd_data_db_file = data_dir + '/dd_data.db'
 memo_file = data_dir + '.memo'
 model_dir = data_dir + '/models'
 from org.tradesafe.utils import utils
+
 utils.mkdirs(model_dir)
 utils.mkdirs(log_dir)
 
@@ -63,6 +64,12 @@ PRIMARY KEY ([date],[code])
 '''
 sql_last_date_index_all = 'select date from all_index order by date([date]) desc limit 1'
 sql_last_date_history_data = 'select date from history_data order by date([date]) desc limit 1'
+sql_last_date_history_data_by_code = 'select date from history_data where code="%s" order by date([date]) desc limit 1'
+sql_last_date_history_data_qfq_by_code = 'select date from history_data_qfq where code="%s" order by date([date]) desc limit 1'
 sql_last_date_dd_data = 'select date from dd_data order by date([date]) desc limit 1'
 sql_history_data_by_code_date = "select * from history_data where code='%s' and date([date]) ='%s'"
 sql_history_data_by_date_lt = "select * from history_data where date([date])<='%s' order by code, date([date]) asc"
+sql_history_data_by_code_date_lt = "select * from history_data where code='%s' " \
+                                   "and date([date])<='%s' order by date([date]) asc"
+sql_history_data_all = 'select * from history_data order by code, date([date]) asc'
+sql_history_data_by_code = 'select * from history_data where code="%s" order by date([date]) asc'

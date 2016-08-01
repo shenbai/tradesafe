@@ -1,102 +1,18 @@
-from __future__ import(absolute_import, division)
-import datetime  # For datetime objects
-import os.path  # To manage paths
-import sys  # To find out the script name (in argv[0])
+# from __future__ import(absolute_import, division)
 # Import the backtrader platform
 import backtrader as bt
 from org.tradesafe.db import sqlite_db as db
-from org.tradesafe.conf import config
 import pandas as pd
-from org.tradesafe.data.history_data import HistoryData
-
-
-from backtrader.utils.py3 import filter, string_types, integer_types
-
-from backtrader import date2num
-import backtrader.feed as feed
-
-
-class PandasDirectDataX(feed.DataBase):
-    '''
-    Uses a Pandas DataFrame as the feed source, iterating directly over the
-    tuples returned by "itertuples".
-
-    This means that all parameters related to lines must have numeric
-    values as indices into the tuples
-
-    Note:
-
-      - The ``dataname`` parameter is a Pandas DataFrame
-
-      - A negative value in any of the parameters for the Data lines
-        indicates it's not present in the DataFrame
-        it is
-    '''
-
-    params = (
-        ('datetime', 1),
-        ('open', 3),
-        ('high', 4),
-        ('low', 6),
-        ('close', 5),
-        ('volume', 7),
-        ('openinterest', -1),
-    )
-
-    datafields = [
-        'datetime', 'open', 'high', 'low', 'close', 'volume', 'openinterest'
-    ]
-
-    def start(self):
-        super(PandasDirectDataX, self).start()
-
-        # reset the iterator on each start
-        self._rows = self.p.dataname.itertuples()
-
-    def _load(self):
-        try:
-            row = next(self._rows)
-        except StopIteration:
-            return False
-
-        # Set the standard datafields - except for datetime
-        for datafield in self.datafields[1:]:
-            # get the column index
-            colidx = getattr(self.params, datafield)
-
-            if colidx < 0:
-                # column not present -- skip
-                continue
-            # get the line to be set
-            line = getattr(self.lines, datafield)
-
-            # indexing for pandas: 1st is colum, then row
-            line[0] = row[colidx]
-
-        # datetime
-        colidx = getattr(self.params, self.datafields[0])
-        tstamp = row[colidx]
-        # print tstamp
-        # convert to float via datetime and store it
-        tstamp = datetime.datetime.strptime(tstamp, '%Y-%m-%d')
-        # dt = tstamp.to_datetime()
-        dt = tstamp
-        # print dt
-        dtnum = date2num(dt)
-        # print dtnum
-        # get the line to be set
-        line = getattr(self.lines, self.datafields[0])
-        line[0] = dtnum
-
-        # Done ... return
-        return True
+from org.tradesafe.data.TsDataFeed import PandasDirectDataX
+import talib
+import numpy as np
 
 # Create a Stratey
 
 
 class TestStrategy(bt.Strategy):
     params = (
-        ('maperiod', 15),
+        ('maperiod', 60),
         ('stake', 10),
     )
 
@@ -106,6 +22,7 @@ class TestStrategy(bt.Strategy):
         print('%s, %s' % (dt.isoformat(), txt))
 
     def __init__(self):
+        # print self.data.close.array
         # Keep a reference to the "close" line in the data[0] dataseries
         self.dataclose = self.datas[0].close
 
@@ -120,7 +37,10 @@ class TestStrategy(bt.Strategy):
         # Add a MovingAverageSimple indicator
         self.sma = bt.indicators.SimpleMovingAverage(
             self.datas[0], period=self.params.maperiod)
-
+        self.ma5 = bt.talib.SMA(self.datas[0].high, timeperiod=5)
+        print type(self.ma5)
+        # self.ma5 = talib.SMA(np.array(self.data.high.array), timeperiod=5)
+        # print type(self.ma5)
         # Indicators for the plotting show
         bt.indicators.ExponentialMovingAverage(self.datas[0], period=25)
         bt.indicators.WeightedMovingAverage(self.datas[0], period=25,
@@ -162,7 +82,6 @@ class TestStrategy(bt.Strategy):
     def notify_trade(self, trade):
         if not trade.isclosed:
             return
-
         self.log('OPERATION PROFIT, GROSS %.2f, NET %.2f' %
                  (trade.pnl, trade.pnlcomm))
 
@@ -178,7 +97,7 @@ class TestStrategy(bt.Strategy):
         if not self.position:
 
             # Not yet ... we MIGHT BUY if ...
-            if self.dataclose[0] > self.sma[0] and self.dataclose[-1] > self.sma[-1]:
+            if self.dataclose[0] > self.sma[0]:
 
                 # BUY, BUY, BUY!!! (with all possible default parameters)
                 self.log('BUY CREATE, %.2f' % self.dataclose[0])
@@ -188,34 +107,28 @@ class TestStrategy(bt.Strategy):
 
         else:
 
-            if self.dataclose[0] < self.sma[0] and self.dataclose[-1] < self.sma[0]:
+            if self.dataclose[0] < self.sma[0]:
                 # SELL, SELL, SELL!!! (with all possible default parameters)
                 self.log('SELL CREATE, %.2f' % self.dataclose[0])
 
                 # Keep track of the created order to avoid a 2nd order
                 self.order = self.sell()
-
+            # if (self.dataclose[0]-self.sma[0])/self.sma[0] > 0.2:
+            #     self.log('SELL CREATE, %.2f' % self.dataclose[0])
+            #     self.order = self.sell()
 
 if __name__ == '__main__':
     # Create a cerebro entity
     cerebro = bt.Cerebro()
-    cerebro.addsizer(bt.sizers.SizerFix, stake=20000)
+    cerebro.addsizer(bt.sizers.SizerFix, stake=2000)
     # Datas are in a subfolder of the samples. Need to find where the script is
     # because it could have been called from anywhere
     # modpath = os.path.dirname(os.path.abspath(sys.argv[0]))
     # datapath = os.path.join(modpath, '../../datas/orcl-1995-2014.txt')
     conn = db.get_history_data_db('D')
     df = pd.read_sql_query(
-        "select * from history_data where code='%s' order by date([date]) asc" % '600022', conn)
+        "select * from history_data where code='%s' order by date([date]) asc" % '600526', conn)
     # print df.head()
-    # Create a Data Feed
-    # data = bt.feeds.YahooFinanceCSVData(
-    #    dataname=datapath,
-    #    # Do not pass values before this date
-    #    fromdate=datetime.datetime(2000, 1, 1),
-    #    # Do not pass values after this date
-    #    todate=datetime.datetime(2000, 12, 31),
-    #    reverse=False)
 
     # Add the Data Feed to Cerebro
     data = PandasDirectDataX(dataname=df)
@@ -232,4 +145,6 @@ if __name__ == '__main__':
     cerebro.run()
 
     # Print out the final result
+    print dir(cerebro.strats)
     print('Final Portfolio Value: %.2f' % cerebro.broker.getvalue())
+    cerebro.plot()

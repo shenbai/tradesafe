@@ -4,39 +4,27 @@ Created on 2016年6月19日
 
 @author: tack
 '''
-from datetime import datetime, date, timedelta
 import os
 
-from pandas.io import sql
-from org.tradesafe.utils import utils
-from org.tradesafe.data.index_code_conf import indices
-from org.tradesafe.conf import config
-from org.tradesafe.db import sqlite_db as db
 import pandas as pd
 import tushare as ts
-from urllib2 import Request, urlopen
-import demjson
-from org.tradesafe.conf import config
 
-import logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
-                    datefmt='%a, %d %b %Y %H:%M:%S',
-                    filename='%s/historydown.log' % config.log_dir)
+from org.tradesafe.conf import config
+from org.tradesafe.db import sqlite_db as db
+from org.tradesafe.utils import utils
 
 
 class HistoryData(object):
     '''
-    历史数据获取
+    历史数据
     '''
 
-    def __init__(self, dataDir='.'):
+    def __init__(self):
         pass
 
-    def get_all_stock_basics(self, useLocal=True):
+    def get_all_stock_basics(self):
         '''
         所有股票的基本数据
-        useLocal:本地数据库的数据或者远程下载的数据
         return
         DataFrame
                code,代码
@@ -58,21 +46,12 @@ class HistoryData(object):
         '''
         conn = db.get_history_data_db()
         conn.text_factory = str
-        df = None
-        if useLocal:
-            try:
-                df = pd.read_sql_query('select * from stock_basics where [timeToMarket] !=0', conn)
-                return df
-            except Exception, e:
-                print e
-        df = ts.get_stock_basics()
-        if not df.empty:
-            try:
-                sql_df=df.loc[:,:]
-                sql.to_sql(sql_df, name='stock_basics', con=conn, index=True, if_exists='replace')
-            except Exception, e:
-                print e
-        return df
+        try:
+            df = pd.read_sql_query('select * from stock_basics where [timeToMarket] !=0', conn)
+            return df
+        except Exception, e:
+            print e
+        return None
 
     def get_all_stock_code(self):
         '''
@@ -81,49 +60,28 @@ class HistoryData(object):
         df = self.get_all_stock_basics();
         return df['code']
 
-    def download_history_data_day(self, ktype='D'):
-        '''
-        获取近3年不复权的历史k线数据
-        '''
-        start = None
-        conn = db.get_history_data_db(ktype)
-        dic = {}
-        try:
-            row = conn.execute(config.sql_last_date_history_data).fetchone()
-            start = row[0]
-            dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
-            start = datetime.strftime(dt, '%Y-%m-%d')
-        except Exception, e:
-            print e
-        print start
-        for code in self.get_all_stock_code():
-            df = ts.get_hist_data(code=code, start=start, ktype=ktype)
-            if df is not None:
-                dic[code] = df
-                df.insert(0, 'code', code)
-                try:
-                    sql_df=df.loc[:,:]
-                    sql.to_sql(sql_df, name='history_data', con=conn, index=True, if_exists='append')
-                except Exception, e:
-                    print e
-        return dic
 
-    def get_history_data_day(self, ktype='D', endDate=None):
+
+    def get_history_data(self, ktype='D', code=None, endDate=None):
         '''
         从sqlite中加载历史k线数据
         '''
         conn = db.get_history_data_db(ktype)
         try:
-            if endDate is not None:
+            if code is not None and endDate is not None:
+                df = pd.read_sql_query(config.sql_history_data_by_code_date_lt % (code,endDate), conn)
+            elif code is None and endDate is not None:
                 df = pd.read_sql_query(config.sql_history_data_by_date_lt % endDate, conn)
-            else:
-                df = pd.read_sql_query('select * from history_data order by code, date([date]) asc', conn)
+            elif code is not None and endDate is None:
+                df = pd.read_sql_query(config.sql_history_data_by_code % code, conn)
+            elif code is None and endDate is None:
+                df = pd.read_sql_query(config.sql_history_data_all, conn)
             return df
         except Exception, e:
             print e
         return None
 
-    def get_all_day_hist_restoration(self):
+    def get_history_data_qfq(self, code=None):
         '''
         获取前复权的历史k线数据
         '''
@@ -137,84 +95,13 @@ class HistoryData(object):
                 dic[code] = df
         return dic
 
-    def get_all_history_tick(self, days=1):
-        '''
-        历史分笔数据
-        '''
-        path = os.path.join(self.dataDir, 'history-tick')
-        utils.mkdirs(path)
-        dic = {}
-        for code in self.get_all_stock_code():
-            alldf = pd.DataFrame()
-            lasty = datetime.today().date() + timedelta(days=0-days)
-            today = datetime.today().date()
-            while today > lasty:
-                if date.isoweekday(lasty) in[6,7]:
-                    lasty = lasty + timedelta(+1)
-                    continue
-                df = ts.get_tick_data(code, lasty)
-#                 df['date'] = str(lasty)
-                df.insert(0, 'date', str(lasty))
-                if len(df) < 10:
-                    continue
-                alldf = alldf.append(df[::])
-                lasty = lasty + timedelta(+1)
-            if not alldf.empty:
-                alldf.to_csv(os.path.join(path,code+'.csv'), index=False, encoding='utf-8')
-                dic[code] = alldf
-        return alldf
 
-    def download_all_index_history(self, start=None, end=None):
-        '''
-        start:开始时间 yyyyMMdd，第一次调用空则取一年前日期，之后以数据表中最近时间为准
-        end:结束时间 yyyyMMdd，空则取当前日期
-        '''
-        conn = db.get_history_data_db()
-        if start == None:
-            try:
-                onerow = conn.execute(config.sql_last_date_index_all).fetchone()
-                if onerow != None:
-                    start = onerow[0]
-                    dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
-                    start = datetime.strftime(dt, '%Y%m%d')
-                else:
-                    start = datetime.today().date() + timedelta(days=-365)
-                    start = start.strftime('%Y%m%d')
-            except Exception, e:
-                start = datetime.today().date() + timedelta(days=-365)
-                start = start.strftime('%Y%m%d')
-
-        if end == None:
-            end = datetime.today().date().strftime('%Y%m%d')
-        print start, end
-        if int(end)<= int(start):
-            return None
-        for code in indices.keys():
-            url = 'http://q.stock.sohu.com/hisHq?code=%s&start=%s&end=%s&stat=1&order=D&period=d' % (code, start, end)
-            res = Request(url)
-            text = urlopen(res, timeout=10).read()
-            text = text.decode('GBK')
-            if len(text)< 40:
-                continue
-            j = demjson.decode(text, 'utf-8')
-            head = ['date','open','close','change','pchange','low','heigh', 'vibration','volume','amount']#日期    开盘    收盘    涨跌额    涨跌幅    最低    最高    成交量(手)    成交金额(万)
-            data = []
-            for x in j[0].get('hq'):
-                m = tuple(x)
-                data.append([m[0], float(m[1]), float(m[2]), float(m[3]), '%.4f' % float(abs((float(m[2])-float(m[1])))/float(m[1])), float(m[5]), float(m[6]), '%.4f' %  float((float(m[1])-float(m[5]))/float(m[1])+ (float(m[6])-float(m[1]))/float(m[1])), float(m[7]), float(m[8]) ])
-            df = pd.DataFrame(data, columns=head)
-            if not df.empty:
-                df.insert(1, 'code', code)
-                try:
-                    sql_df=df.loc[:,:]
-                    sql.to_sql(sql_df, name='all_index', con=conn, index=False, if_exists='append')
-                except Exception, e:
-                    print e
-        return df
-
-    def get_all_index_history(self):
+    def get_index_history(self, code=None):
         con = db.get_history_data_db()
-        df = pd.read_sql_query('select * from all_index order by code, date([date]) asc', con)
+        if code is None:
+            df = pd.read_sql_query('select * from all_index order by code, date([date]) asc', con)
+        else:
+            df = pd.read_sql_query('select * from all_index where code="%s" order by date([date]) asc' % code, con)
         return df
 
     def get_frist_day(self, code):
@@ -224,52 +111,8 @@ class HistoryData(object):
         df = self.get_all_stock_basics()
         return df.ix[code]['timeToMarket']
 
-    def download_dd_data(self, start=None):
-        '''
-        获取大单数据
-        '''
-        conn = db.get_dd_data_db()
-        dic = {}
-        try:
-            row = conn.execute(config.sql_last_date_dd_data).fetchone()
-            start = row[0]
-            dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
-            # start = datetime.strftime(dt, '%Y-%m-%d')
-            start = dt
-        except Exception, e:
-            start = datetime.today().date() + timedelta(days=-365)
-            # start = start.strftime('%Y%m%d')
-            print e
-        print start
-        for code in self.get_all_stock_code():
-            # df = ts.get_hist_data(code=code, start=start, ktype=ktype)
-            end = datetime.today().date()
-            while start < end:
-                date = end.strftime('%Y-%m-%d')
-                df = ts.get_sina_dd(code=code, date=date, vol=500)
-                if df is not None:
-                    dic[code] = df
-                    df.insert(0, 'code', code)
-                    try:
-                        sql_df=df.loc[:,:]
-                        sql.to_sql(sql_df, name='dd_data', con=conn, index=True, if_exists='append')
-                    except Exception, e:
-                        logging.error('download error:%s,%s' % (code,date))
-                        print e
-                    pass
-            start = start + timedelta(days=1)
-        return dic
+
 
 if __name__ == '__main__':
-    hd = HistoryData('/home/tack/stock')
-    # hd.get_all_stock_basics()
-    # hd.download_all_index_history()
-    # df = hd.get_all_index_history()
-    # print df.head()
-    # df = hd.get_all_stock_basics()
-    # print len(df)
-    # print len(df.loc[df.timeToMarket>0,:])
-    # df = ts.get_stock_basics()
-    # print df.head()
-    hd.download_history_data_day(ktype='D')
-    # hd.download_dd_data()
+    hd = HistoryData()
+    hd.get_index_history()
