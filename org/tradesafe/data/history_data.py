@@ -62,38 +62,40 @@ class HistoryData(object):
 
 
 
-    def get_history_data(self, ktype='D', code=None, endDate=None):
+    def get_history_data(self, ktype='D', code=None, startDate=None, endDate=None):
         '''
         从sqlite中加载历史k线数据
         '''
+
         conn = db.get_history_data_db(ktype)
         try:
-            if code is not None and endDate is not None:
-                df = pd.read_sql_query(config.sql_history_data_by_code_date_lt % (code,endDate), conn)
-            elif code is None and endDate is not None:
-                df = pd.read_sql_query(config.sql_history_data_by_date_lt % endDate, conn)
-            elif code is not None and endDate is None:
-                df = pd.read_sql_query(config.sql_history_data_by_code % code, conn)
-            elif code is None and endDate is None:
-                df = pd.read_sql_query(config.sql_history_data_all, conn)
+            # if code is not None and endDate is not None:
+            #     df = pd.read_sql_query(config.sql_history_data_by_code_date_lt % (code,endDate), conn)
+            # elif code is None and endDate is not None:
+            #     df = pd.read_sql_query(config.sql_history_data_by_date_lt % endDate, conn)
+            # elif code is not None and endDate is None:
+            #     df = pd.read_sql_query(config.sql_history_data_by_code % code, conn)
+            # elif code is None and endDate is None:
+            #     df = pd.read_sql_query(config.sql_history_data_all, conn)
+            df = pd.read_sql_query(config.sql_history_data_by_code_date_between % (code, startDate, endDate), conn)
+            df = df.set_index(df['date'])
             return df
         except Exception, e:
             print e
         return None
 
-    def get_history_data_qfq(self, code=None):
+    def get_history_data_qfq(self, code=None, startDate=None, endDate=None):
         '''
         获取前复权的历史k线数据
         '''
-        path = os.path.join(self.dataDir, 'history-day-restoration')
-        utils.mkdirs(path)
-        dic = {}
-        for code in self.get_all_stock_code():
-            df = ts.get_h_data(code, utils.today_last_year(3))
-            if not df.empty:
-                df.to_csv(os.path.join(path,code+'.csv'), index=True, encoding='utf-8')
-                dic[code] = df
-        return dic
+
+        conn = db.get_history_data_db()
+        try:
+            df = pd.read_sql_query(config.sql_history_data_qfq_by_code_date_between % (code, startDate, endDate), conn)
+            return df
+        except Exception, e:
+            print e
+        return None
 
 
     def get_index_history(self, code=None):
@@ -115,4 +117,6 @@ class HistoryData(object):
 
 if __name__ == '__main__':
     hd = HistoryData()
-    hd.get_index_history()
+    # hd.get_index_history()
+    df = hd.get_history_data(code='600622', startDate='2015-01-01', endDate='2016-06-01')
+    print df.head()

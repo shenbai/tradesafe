@@ -73,3 +73,8 @@ sql_history_data_by_code_date_lt = "select * from history_data where code='%s' "
                                    "and date([date])<='%s' order by date([date]) asc"
 sql_history_data_all = 'select * from history_data order by code, date([date]) asc'
 sql_history_data_by_code = 'select * from history_data where code="%s" order by date([date]) asc'
+sql_history_data_by_code_date_between = "select * from history_data where code='%s' " \
+                                   "and date([date])>='%s' and date([date])<='%s' order by date([date]) asc"
+
+sql_history_data_qfq_by_code_date_between = "select * from history_data_qfq where code='%s' " \
+                                        "and date([date])>='%s' and date([date])<='%s' order by date([date]) asc"
