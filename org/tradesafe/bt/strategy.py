@@ -26,7 +26,7 @@ class abstrictStrategy(object):
         if 'acount' in kwargs:
             self.acount = kwargs.get('acount')
         else:
-            self.acount = Acount(maxPosition=0.8, maxPositionPerShare=0.2)
+            self.acount = Acount(maxPosition=1, maxPositionPerShare=0.2)
         self.order = Order(self.acount)
 
     def run(self):
@@ -61,11 +61,26 @@ class abstrictStrategy(object):
         Returns:
 
         '''
-        if row.ma5 > row.ma10:
+        # print '#', row.ma10
+        # print '#0', data[0].ma10
+        # print '#1', data[-2:-1].ma10
+        # print '#2', data[-2].ma10
+        yestoday = self.get_one_data(data, -2)
+        print '1', yestoday.date, yestoday.ma5 > yestoday.ma10
+        print '2', row.date, row.ma5 > row.ma10
+        if row.ma5 > row.ma10 and yestoday.ma5 < yestoday.ma10:
             self.order.order(tick, 1, row.code, row.close)
-        if row.ma5 < row.ma10:
+        if row.ma5 < row.ma10 and yestoday.ma5 > yestoday.ma10:
             self.order.order(tick, 2, row.code, row.close)
         pass
+
+    def get_one_data(self, data, i):
+        if i < 0:
+            if i == -1:
+                return data[i:]
+            if i < -1:
+                return data[i:i + 1]
+        return None
 
 
 class Order(object):
@@ -82,7 +97,6 @@ class Order(object):
             bs: 1: buy, 2: sell
             code: code
             price: 成交价格
-            num: 成交数量
             commission: 佣金比例
             **kwargs:
 
@@ -108,20 +122,23 @@ class Order(object):
                     self.opExec(code, num, price, bs, date)
         if bs == 2:
             # 可卖出金额=当前持仓-最小持仓
-            canSellCash = self.acount.get_value() - self.acount.get_assets() * \
-                self.acount.minPosition
-            if canSellCash > 0 and code in self.acount.stocks:
-                num = self.sellNum(canSellCash, price,
-                                   self.acount.stocks.get(code).num)
-                self.opExec(code, num, price, bs, date)
+            # canSellCash = self.acount.get_value() - self.acount.get_assets() * \
+            #     self.acount.minPosition
+            # if canSellCash > 0 and code in self.acount.stocks:
+            #     num = self.sellNum(canSellCash, price,
+            #                        self.acount.stocks.get(code).num)
+            #     self.opExec(code, num, price, bs, date)
+            if code in self.acount.stocks:
+                self.opExec(code, self.acount.stocks.get(
+                    code).num, price, bs, date)
 
     def sellNum(self, cash, price, totalNum):
-        num = (floor(cash / (price + self.acount.buyCommission)) / 100)
+        num = floor(cash / (price * (1 + self.acount.sellCommission))) / 100
         num = int(num) * 100
         return min(totalNum, num)
 
     def buyNum(self, cash, price):
-        num = (floor(cash / (price + self.acount.buyCommission)) / 100)
+        num = floor(cash / (price * (1 + self.acount.buyCommission))) / 100
         return int(num) * 100
 
     def opExec(self, code, num, price, bs=1, date=None):
@@ -132,7 +149,6 @@ class Order(object):
             commissions = max(
                 amount * self.acount.buyCommission, self.acount.minFee)
             cost = amount + commissions
-            print '#b', self.acount.cash, cost, self.acount.cash - cost
             self.acount.cash -= cost
 
             if code in self.acount.stocks:
@@ -147,21 +163,22 @@ class Order(object):
         if bs == 2 and num > 0:
             p = self.acount.stocks.get(code)
             amount = num * price
-            cost = p.cost
+            cost = p.cost * (float(num) / float(p.num))
             commissions = max(
-                amount * self.acount.buyCommission, self.acount.minFee)
-            print '#s', self.acount.cash, amount, self.acount.cash + amount - commissions
+                amount * self.acount.sellCommission, self.acount.minFee)
             self.acount.cash += (amount - commissions)
             if num == p.num:
                 self.acount.stocks.pop(code)
             elif num < p.num:  # 更新持仓成本
-                n = Position(code=code, cost=amount, num=num, price=price)
+                n = Position(code=code, cost=cost, num=num, price=price)
                 self.acount.stocks[code].sub(n)
             else:
                 raise Exception(
                     'sell num error for code=%s, num=%d' % (code, num))
-            print '%s, %s s at price %f, num %d, cost %f, amount %f, fee %f,net %f, asset %f, cash %f, value %f' % (date, code, price, num, cost, amount, commissions, amount - cost, self.acount.get_assets(), self.acount.cash, self.acount.get_value())
-            self.net.append((date, amount, cost, amount - cost))
+            print '%s, %s s at price %f, num %d, cost %f, amount %f, fee %f,net %f, asset %f, cash %f, value %f' % (date, code, price, num, cost, amount, commissions, amount - cost - commissions, self.acount.get_assets(), self.acount.cash, self.acount.get_value())
+            self.net.append((date, amount, cost, amount - cost - commissions))
+            print sum([i[3] for i in a.order.net])
+            print self.acount.get_paper()
             return date, code, price, num, cost, amount, commissions, bs
         # print '#3', self.acount.stocks
 
@@ -214,8 +231,14 @@ class Acount(object):
         '''
         value = 0.
         for p in self.stocks.values():
-            value += p.num * p.price
+            value += p.get_value()
         return value
+
+    def get_paper(self):
+        paper = 0.
+        for p in self.stocks.values():
+            paper += p.get_paper()
+        return paper
 
 
 class OrderHistory(object):
@@ -254,8 +277,8 @@ class Position(object):
         加仓
         '''
         if position is not None and position.code == self.code:
-            self.cost = self.cost + position.cost
-            self.num = self.num + position.num
+            self.cost += position.cost
+            self.num += position.num
             return self
 
     def sub(self, position=None):
@@ -263,8 +286,8 @@ class Position(object):
         减持
         '''
         if position is not None and position.code == self.code:
-            self.cost = self.cost - position.cost
-            self.num = self.num - position.num
+            self.cost -= position.cost
+            self.num -= position.num
             return self
 
     def update(self, price=None):
@@ -280,6 +303,12 @@ class Position(object):
         '''
         return self.price * self.num
 
+    def get_paper(self):
+        '''
+        paper loss, paper gain
+        '''
+        return self.get_value() - self.cost
+
     def __repr__(self):
         return 'code=%s,cost=%f,price=%f,num=%d,value=%f,date=%s' % (self.code, self.cost, self.price, self.num, self.get_value(), self.date)
 
@@ -287,14 +316,15 @@ if __name__ == '__main__':
     from org.tradesafe.data.history_data import HistoryData
     hd = HistoryData()
     df1 = hd.get_history_data(
-        code='600622', startDate='2016-01-01', endDate='2016-08-01')
+        code='002084', startDate='2016-01-01', endDate='2016-08-01')
     df2 = hd.get_history_data(
-        code='600633', startDate='2016-01-01', endDate='2016-08-01')
+        code='600518', startDate='2016-01-01', endDate='2016-08-01')
     # print df2.head()
     a = abstrictStrategy(
         datas={'22': df1, '33': df2}, start='2016-01-01', end='2016-08-01')
     a.run()
-    print a.acount.cash, a.acount.get_value(), a.acount.get_assets()
+    print a.acount.cash, a.acount.get_value(), a.acount.get_assets(), a.acount.get_paper()
     # print a.order.net
     print sum([i[3] for i in a.order.net])
     print a.acount.stocks
+    print len([i[3] for i in a.order.net if i[3] > 0]) / float(len(a.order.net))
