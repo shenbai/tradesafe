@@ -28,6 +28,7 @@ class abstrictStrategy(object):
         else:
             self.acount = Acount(maxPosition=1, maxPositionPerShare=0.2)
         self.order = Order(self.acount)
+        self.p = 0
 
     def run(self):
 
@@ -44,11 +45,12 @@ class abstrictStrategy(object):
                         order = self.handle_data(
                             tick=index, data=df.ix[:index], row=row)
             except Exception as e:
-                # if not isinstance(e, KeyError):
-                    # pass
+                if not isinstance(e, KeyError):
+                    pass
                 # traceback.print_exc()
                 # ignore
                 pass
+            self.p += 1
 
     def handle_data(self, tick, data, row):
         '''
@@ -61,14 +63,8 @@ class abstrictStrategy(object):
         Returns:
 
         '''
-        # print '#', row.ma10
-        # print '#0', data[0].ma10
-        # print '#1', data[-2:-1].ma10
-        # print '#2', data[-2].ma10
-        yestoday = self.get_one_data(data, -2)
-        print '1', yestoday.date, yestoday.ma5 > yestoday.ma10
-        print '2', row.date, row.ma5 > row.ma10
-        if row.ma5 > row.ma10 and yestoday.ma5 < yestoday.ma10:
+        yestoday = self.get_one_data(data, -1)
+        if row.ma5 > row.ma10 and row.ma10 > row.ma20 and yestoday.ma5 < yestoday.ma10:
             self.order.order(tick, 1, row.code, row.close)
         if row.ma5 < row.ma10 and yestoday.ma5 > yestoday.ma10:
             self.order.order(tick, 2, row.code, row.close)
@@ -76,10 +72,8 @@ class abstrictStrategy(object):
 
     def get_one_data(self, data, i):
         if i < 0:
-            if i == -1:
-                return data[i:]
-            if i < -1:
-                return data[i:i + 1]
+            if i < 0 and self.p + i >= 0:
+                return data.ix[self.ticks[self.p + i]]
         return None
 
 
@@ -111,8 +105,7 @@ class Order(object):
                 if code in self.acount.stocks:
                     # 买一只股票可用的最大现金=总资产*单只股票最大仓位-该股票市直
                     cashOneStock = min(availableCash, self.acount.get_assets() *
-                                       self.acount.maxPositionPerShare
-                                       - self.acount.stocks.get(code).get_value())
+                                       self.acount.maxPositionPerShare - self.acount.stocks.get(code).get_value())
                     num = self.buyNum(cashOneStock, price)
                     self.opExec(code, num, price, bs, date)
                 else:
@@ -170,15 +163,15 @@ class Order(object):
             if num == p.num:
                 self.acount.stocks.pop(code)
             elif num < p.num:  # 更新持仓成本
-                n = Position(code=code, cost=cost, num=num, price=price)
+                n = Position(code=code, cost=amount, num=num, price=price)
                 self.acount.stocks[code].sub(n)
             else:
                 raise Exception(
                     'sell num error for code=%s, num=%d' % (code, num))
             print '%s, %s s at price %f, num %d, cost %f, amount %f, fee %f,net %f, asset %f, cash %f, value %f' % (date, code, price, num, cost, amount, commissions, amount - cost - commissions, self.acount.get_assets(), self.acount.cash, self.acount.get_value())
             self.net.append((date, amount, cost, amount - cost - commissions))
-            print sum([i[3] for i in a.order.net])
-            print self.acount.get_paper()
+            print 'loss', sum([i[3] for i in a.order.net])
+            print 'paper', self.acount.get_paper()
             return date, code, price, num, cost, amount, commissions, bs
         # print '#3', self.acount.stocks
 
@@ -317,8 +310,9 @@ if __name__ == '__main__':
     hd = HistoryData()
     df1 = hd.get_history_data(
         code='002084', startDate='2016-01-01', endDate='2016-08-01')
+    # print df1.head()
     df2 = hd.get_history_data(
-        code='600518', startDate='2016-01-01', endDate='2016-08-01')
+        code='000519', startDate='2016-01-01', endDate='2016-08-01')
     # print df2.head()
     a = abstrictStrategy(
         datas={'22': df1, '33': df2}, start='2016-01-01', end='2016-08-01')
@@ -327,4 +321,6 @@ if __name__ == '__main__':
     # print a.order.net
     print sum([i[3] for i in a.order.net])
     print a.acount.stocks
-    print len([i[3] for i in a.order.net if i[3] > 0]) / float(len(a.order.net))
+    n = len([i[3] for i in a.order.net if i[3] > 0])
+    m = len(a.order.net)
+    print '%d/%d=%f' % (n, m, n / float(m))
