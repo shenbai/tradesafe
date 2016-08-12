@@ -23,10 +23,12 @@ logging.basicConfig(level=logging.DEBUG,
 console = logging.StreamHandler()
 console.setLevel(logging.DEBUG)
 # 设置日志打印格式
-formatter = logging.Formatter('%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s')
 console.setFormatter(formatter)
 # 将定义好的console日志handler添加到root logger
 logging.getLogger('').addHandler(console)
+
 
 def get_all_stock_code():
     '''
@@ -35,7 +37,8 @@ def get_all_stock_code():
     conn = db.get_history_data_db()
     conn.text_factory = str
     try:
-        df = pd.read_sql_query('select * from stock_basics where [timeToMarket] !=0', conn)
+        df = pd.read_sql_query(
+            'select * from stock_basics where [timeToMarket] !=0', conn)
         return df['code']
     except Exception, e:
         print e
@@ -69,7 +72,8 @@ def updata_all_stock_basics():
     if not df.empty:
         try:
             sql_df = df.loc[:, :]
-            sql.to_sql(sql_df, name='stock_basics', con=conn, index=True, if_exists='replace')
+            sql.to_sql(sql_df, name='stock_basics', con=conn,
+                       index=True, if_exists='replace')
         except Exception, e:
             print e
 
@@ -84,7 +88,8 @@ def download_history_data(ktype='D'):
     for code in get_all_stock_code():
         cost = datetime.now()
         try:
-            row = conn.execute(config.sql_last_date_history_data_by_code % code).fetchone()
+            row = conn.execute(
+                config.sql_last_date_history_data_by_code % code).fetchone()
             start = row[0]
             dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
             start = datetime.strftime(dt, '%Y-%m-%d')
@@ -96,14 +101,17 @@ def download_history_data(ktype='D'):
             df.insert(0, 'code', code)
             try:
                 sql_df = df.loc[:, :]
-                sql.to_sql(sql_df, name='history_data', con=conn, index=True, if_exists='append')
+                sql.to_sql(sql_df, name='history_data', con=conn,
+                           index=True, if_exists='append')
                 logging.info('%s,%s history data download ok.' % (code, start))
             except Exception, e:
                 logging.error('error:code:%s,start:%s' % (code, start))
                 print e
         else:
             logging.info('%s,%s get none' % (code, start))
-        logging.debug('%s,costs:%d s' % (code, (datetime.now() - cost).seconds))
+        logging.debug('%s,costs:%d s' %
+                      (code, (datetime.now() - cost).seconds))
+
 
 def download_history_data_fq(autype='qfq'):
     '''
@@ -115,7 +123,8 @@ def download_history_data_fq(autype='qfq'):
     start = utils.today_last_year(6)
     for code in get_all_stock_code():
         try:
-            row = conn.execute(config.sql_last_date_history_data_qfq_by_code % code).fetchone()
+            row = conn.execute(
+                config.sql_last_date_history_data_qfq_by_code % code).fetchone()
             start = row[0]
             dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
             start = datetime.strftime(dt, '%Y-%m-%d')
@@ -128,8 +137,10 @@ def download_history_data_fq(autype='qfq'):
             try:
                 df.insert(0, 'code', code)
                 sql_df = df.loc[:, :]
-                sql.to_sql(sql_df, name='history_data_%s' % autype, con=conn, index=True, if_exists='append')
-                logging.info('%s,%s history qfq data download ok.' % (code, start))
+                sql.to_sql(sql_df, name='history_data_%s' %
+                           autype, con=conn, index=True, if_exists='append')
+                logging.info('%s,%s history qfq data download ok.' %
+                             (code, start))
             except Exception, e:
                 logging.error('error:code:%s,start:%s' % (code, start))
                 print e
@@ -150,10 +161,10 @@ def download_index_history_data(start=None, end=None):
                 dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
                 start = datetime.strftime(dt, '%Y%m%d')
             else:
-                start = datetime.today().date() + timedelta(days=-365)
+                start = datetime.today().date() + timedelta(days=-365 * 3)
                 start = start.strftime('%Y%m%d')
         except Exception, e:
-            start = datetime.today().date() + timedelta(days=-365)
+            start = datetime.today().date() + timedelta(days=-365 * 3)
             start = start.strftime('%Y%m%d')
 
     if end == None:
@@ -162,7 +173,8 @@ def download_index_history_data(start=None, end=None):
     if int(end) <= int(start):
         return None
     for code in indices.keys():
-        url = 'http://q.stock.sohu.com/hisHq?code=%s&start=%s&end=%s&stat=1&order=D&period=d' % (code, start, end)
+        url = 'http://q.stock.sohu.com/hisHq?code=%s&start=%s&end=%s&stat=1&order=D&period=d' % (
+            code, start, end)
         res = Request(url)
         text = urlopen(res, timeout=10).read()
         text = text.decode('GBK')
@@ -175,7 +187,8 @@ def download_index_history_data(start=None, end=None):
         for x in j[0].get('hq'):
             m = tuple(x)
             data.append([m[0], float(m[1]), float(m[2]), float(m[3]),
-                         '%.4f' % float(abs((float(m[2]) - float(m[1]))) / float(m[1])), float(m[5]), float(m[6]),
+                         '%.4f' % float(
+                             abs((float(m[2]) - float(m[1]))) / float(m[1])), float(m[5]), float(m[6]),
                          '%.4f' % float(
                              (float(m[1]) - float(m[5])) / float(m[1]) + (float(m[6]) - float(m[1])) / float(m[1])),
                          float(m[7]), float(m[8])])
@@ -184,8 +197,10 @@ def download_index_history_data(start=None, end=None):
             df.insert(1, 'code', code)
             try:
                 sql_df = df.loc[:, :]
-                sql.to_sql(sql_df, name='all_index', con=conn, index=False, if_exists='append')
-                logging.info('%s,%s index history download ok.' % (code, start))
+                sql.to_sql(sql_df, name='all_index', con=conn,
+                           index=False, if_exists='append')
+                logging.info('%s,%s index history download ok.' %
+                             (code, start))
             except Exception, e:
                 print e
     return df
@@ -214,7 +229,8 @@ def download_dd_data(start=None):
                 df.insert(0, 'code', code)
                 try:
                     sql_df = df.loc[:, :]
-                    sql.to_sql(sql_df, name='dd_data', con=conn, index=True, if_exists='append')
+                    sql.to_sql(sql_df, name='dd_data', con=conn,
+                               index=True, if_exists='append')
                     logging.info('%s,%s dd data download ok.' % (code, start))
                 except Exception, e:
                     logging.error('download error:%s,%s' % (code, date))
@@ -228,4 +244,5 @@ if __name__ == '__main__':
     # updata_all_stock_basics()
     # download_history_data_fq()
     # download_index_history_data()
+    download_index_history_data(start='20140101')
     download_history_data()

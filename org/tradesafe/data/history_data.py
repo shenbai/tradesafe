@@ -47,7 +47,8 @@ class HistoryData(object):
         conn = db.get_history_data_db()
         conn.text_factory = str
         try:
-            df = pd.read_sql_query('select * from stock_basics where [timeToMarket] !=0', conn)
+            df = pd.read_sql_query(
+                'select * from stock_basics where [timeToMarket] !=0', conn)
             return df
         except Exception, e:
             print e
@@ -57,10 +58,8 @@ class HistoryData(object):
         '''
         返回全部股票代码
         '''
-        df = self.get_all_stock_basics();
+        df = self.get_all_stock_basics()
         return df['code']
-
-
 
     def get_history_data(self, ktype='D', code=None, startDate=None, endDate=None):
         '''
@@ -77,7 +76,8 @@ class HistoryData(object):
             #     df = pd.read_sql_query(config.sql_history_data_by_code % code, conn)
             # elif code is None and endDate is None:
             #     df = pd.read_sql_query(config.sql_history_data_all, conn)
-            df = pd.read_sql_query(config.sql_history_data_by_code_date_between % (code, startDate, endDate), conn)
+            df = pd.read_sql_query(config.sql_history_data_by_code_date_between % (
+                code, startDate, endDate), conn)
             df = df.set_index(df['date'])
             return df
         except Exception, e:
@@ -91,19 +91,22 @@ class HistoryData(object):
 
         conn = db.get_history_data_db()
         try:
-            df = pd.read_sql_query(config.sql_history_data_qfq_by_code_date_between % (code, startDate, endDate), conn)
+            df = pd.read_sql_query(config.sql_history_data_qfq_by_code_date_between % (
+                code, startDate, endDate), conn)
             return df
         except Exception, e:
             print e
         return None
 
-
     def get_index_history(self, code=None):
         con = db.get_history_data_db()
         if code is None:
-            df = pd.read_sql_query('select * from all_index order by code, date([date]) asc', con)
+            df = pd.read_sql_query(
+                'select * from all_index order by code, date([date]) asc', con)
         else:
-            df = pd.read_sql_query('select * from all_index where code="%s" order by date([date]) asc' % code, con)
+            df = pd.read_sql_query(
+                'select * from all_index where code="%s" order by date([date]) asc' % code, con)
+        df = df.set_index(df['date'])
         return df
 
     def get_frist_day(self, code):
@@ -114,9 +117,9 @@ class HistoryData(object):
         return df.ix[code]['timeToMarket']
 
 
-
 if __name__ == '__main__':
     hd = HistoryData()
     # hd.get_index_history()
-    df = hd.get_history_data(code='600622', startDate='2015-01-01', endDate='2016-06-01')
+    df = hd.get_history_data(
+        code='600622', startDate='2015-01-01', endDate='2016-06-01')
     print df.head()

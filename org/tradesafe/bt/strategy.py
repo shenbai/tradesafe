@@ -1,4 +1,6 @@
 # coding:utf-8
+
+from org.tradesafe.data.history_data import HistoryData
 from datetime import datetime, timedelta
 import traceback
 import sys
@@ -10,12 +12,17 @@ class abstrictStrategy(object):
     strategy
     '''
 
-    def __init__(self, datas={}, **kwargs):
-        self.datas = datas
+    def __init__(self, stock_pool=['000001'], **kwargs):
+        self.hd = HistoryData()
+        self.stock_pool = stock_pool
         start_date = kwargs.get('start')
         end_date = kwargs.get('end')
         if start_date is None or end_date is None:
             raise Exception('no start,end time set')
+        self.datas = {}
+        for stock in self.stock_pool:
+            self.datas[stock] = self.hd.get_history_data(
+                code=stock, startDate=start_date, endDate=end_date)
         start = datetime.strptime(start_date, '%Y-%m-%d')
         end = datetime.strptime(end_date, '%Y-%m-%d')
         self.ticks = []
@@ -27,7 +34,14 @@ class abstrictStrategy(object):
             self.acount = kwargs.get('acount')
         else:
             self.acount = Acount(maxPosition=1, maxPositionPerShare=0.2)
+        if 'metrics' in kwargs:
+            self.metrics = kwargs.get('metrics')
+        else:
+            self.metrics = Metrics(
+                index_code='zs_000001', ticks=self.ticks, hd=self.hd)
         self.order = Order(self.acount)
+        self.begin = None
+        self.end = None
         self.p = 0
 
     def run(self):
@@ -39,6 +53,9 @@ class abstrictStrategy(object):
                     row = df.ix[index]
                     if len(row) > 3:
                         self.acount.update(code=row.code, price=row.close)
+                        if self.begin is None:
+                            self.begin = index
+                        self.end = index
                 for df in self.datas.values():
                     row = df.ix[index]
                     if len(row) > 3:
@@ -51,6 +68,21 @@ class abstrictStrategy(object):
                 # ignore
                 pass
             self.p += 1
+
+    def baseline(self):
+        '''
+        等权买入并持有
+        '''
+        b = 0.
+        e = 0.
+        for data in self.datas.values():
+            b += data.ix[self.begin].close
+            e += data.ix[self.end].close
+            print self.begin, data.ix[self.begin].close
+            print self.end, data.ix[self.end].close
+        n = len(self.datas)
+        print b/n, e/n
+        return (e/n - b/n) / b/n
 
     def handle_data(self, tick, data, row):
         '''
@@ -202,6 +234,7 @@ class Acount(object):
         '''
         self.id = id
         self.passwd = passwd
+        self.initail_cash = cash
         self.cash = cash
         self.maxPosition = maxPosition
         self.minPosition = minPosition
@@ -305,17 +338,42 @@ class Position(object):
     def __repr__(self):
         return 'code=%s,cost=%f,price=%f,num=%d,value=%f,date=%s' % (self.code, self.cost, self.price, self.num, self.get_value(), self.date)
 
+
+class Metrics(object):
+    """docstring for Metrics"""
+
+    def __init__(self, **kwargs):
+        self.hd = kwargs.get('hd', HistoryData())
+        self.ticks = kwargs.get('ticks')
+        if 'index_code' in kwargs:
+            self.index_code = kwargs.get('index_code')
+        else:
+            self.index_code = 'zs_000001'
+
+        self.index_data = self.hd.get_index_history(self.index_code)
+        # print self.index_data.tail()
+        pass
+
+    def baseline(self, begin, end):
+        b = 0.
+        e = 0.
+        try:
+            # b = self.index_data.ix[begin]
+            b = self.index_data.ix[self.index_data.index[0]].close
+        except Exception, e:
+            pass
+        try:
+            # e = self.index_data.ix[end]
+            e = self.index_data.ix[self.index_data.index[-1]].close
+        except Exception, e:
+            pass
+        print b, e
+        return (e - b) / b
+
 if __name__ == '__main__':
-    from org.tradesafe.data.history_data import HistoryData
-    hd = HistoryData()
-    df1 = hd.get_history_data(
-        code='002084', startDate='2016-01-01', endDate='2016-08-01')
-    # print df1.head()
-    df2 = hd.get_history_data(
-        code='000519', startDate='2016-01-01', endDate='2016-08-01')
-    # print df2.head()
+
     a = abstrictStrategy(
-        datas={'22': df1, '33': df2}, start='2016-01-01', end='2016-08-01')
+        stock_pool=['600036'], start='2015-01-01', end='2016-08-01')
     a.run()
     print a.acount.cash, a.acount.get_value(), a.acount.get_assets(), a.acount.get_paper()
     # print a.order.net
@@ -324,3 +382,6 @@ if __name__ == '__main__':
     n = len([i[3] for i in a.order.net if i[3] > 0])
     m = len(a.order.net)
     print '%d/%d=%f' % (n, m, n / float(m))
+    print a.metrics.baseline(a.begin, a.end)
+    print a.baseline()
+    print (a.acount.get_assets() - a.acount.initail_cash) / a.acount.initail_cash
