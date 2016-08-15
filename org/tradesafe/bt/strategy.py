@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import traceback
 import sys
 from math import *
+import talib
 
 
 class abstrictStrategy(object):
@@ -44,8 +45,52 @@ class abstrictStrategy(object):
         self.end = None
         self.p = 0
 
-    def run(self):
+        self.indicator()
 
+
+    def indicator(self, **kwargs):
+        print '#####'
+        for df in self.datas.values():
+            macd, macdsignal, macdhist = talib.MACD(df.close.values, fastperiod=12, slowperiod=26, signalperiod=9)
+            df['macd'] = macd
+            df['macdsignal'] = macdsignal
+            df['macdhist'] = macdhist
+            k, d = talib.STOCH(df.high.values, df.low.values, df.close.values, fastk_period=5, slowk_period=3, slowk_matype=0, slowd_period=3, slowd_matype=0)
+            df['k'] = k
+            df['d'] = d
+            wr = talib.WILLR(df.high.values, df.low.values, df.close.values, timeperiod=14)
+            df['wr'] = wr
+            rsi = talib.RSI(df.close.values, timeperiod=14)
+            df['rsi'] = rsi
+            cr100 = talib.ROCR100(df.close.values, timeperiod=10)
+            df['cr100'] = cr100
+            adx = talib.ADX(df.high.values, df.low.values, df.close.values, timeperiod=14)
+            df['adx'] = adx
+            dx = talib.DX(df.high.values, df.low.values, df.close.values, timeperiod=14)
+            df['dx'] = dx
+            cci = talib.CCI(df.high.values, df.low.values, df.close.values, timeperiod=14)
+            df['cci'] = cci
+            upperband, middleband, lowerband = talib.BBANDS(df.close.values, timeperiod=5, nbdevup=2, nbdevdn=2, matype=0)
+            df['upperband'] = upperband
+            df['middleband'] = middleband
+            df['lowerband'] = lowerband
+            sar = talib.SAR(df.high.values, df.low.values, acceleration=0, maximum=0)
+            df['sar'] = sar
+            ad = talib.ADOSC(df.high.values, df.low.values, df.close.values, df.volume.values, fastperiod=3, slowperiod=10)
+            df['ad'] = ad
+            obv = talib.OBV(df.close.values, df.volume.values)
+            df['obv'] = obv
+            atr = talib.ATR(df.high.values, df.low.values, df.close.values, timeperiod=14)
+            df['atr'] = atr
+
+            pass
+        pass
+
+    def run(self):
+        '''
+        strategy goes here
+        Returns:
+        '''
         # dataFrames = self.datas.values()
         for index in self.ticks:
             try:
