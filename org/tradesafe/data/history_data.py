@@ -119,6 +119,7 @@ class HistoryData(object):
 
 if __name__ == '__main__':
     hd = HistoryData()
+    hd.get_all_stock_basics()
     # hd.get_index_history()
     df = hd.get_history_data(
         code='600622', startDate='2015-01-01', endDate='2016-06-01')

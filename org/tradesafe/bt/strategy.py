@@ -141,9 +141,9 @@ class abstrictStrategy(object):
 
         '''
         yestoday = self.get_one_data(data, -1)
-        if row.ma5 > row.ma10 and row.ma10 > row.ma20 and yestoday.ma5 < yestoday.ma10:
+        if row.ma5 > row.ma10 :
             self.order.order(tick, 1, row.code, row.close)
-        if row.ma5 < row.ma10 and yestoday.ma5 > yestoday.ma10:
+        if row.ma5 < row.ma10:
             self.order.order(tick, 2, row.code, row.close)
         pass
 
@@ -418,7 +418,7 @@ class Metrics(object):
 if __name__ == '__main__':
 
     a = abstrictStrategy(
-        stock_pool=['600036'], start='2015-01-01', end='2016-08-01')
+        stock_pool=['600636'], start='2015-01-01', end='2016-08-01')
     a.run()
     print a.acount.cash, a.acount.get_value(), a.acount.get_assets(), a.acount.get_paper()
     # print a.order.net
