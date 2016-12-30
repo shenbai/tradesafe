@@ -1,6 +1,6 @@
 # coding: utf-8
-data_dir = '/home/tack/data'
-log_dir = '/home/tack/log'
+data_dir = '/Users/tack/ts/data'
+log_dir = '/Users/tack/ts/log'
 history_D_data_db_file = data_dir + '/history_data_D.db'
 history_W_data_db_file = data_dir + '/history_data_W.db'
 history_M_data_db_file = data_dir + '/history_data_M.db'

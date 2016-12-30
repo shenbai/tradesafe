@@ -78,32 +78,24 @@ def updata_all_stock_basics():
             print e
 
 
-def download_history_data(ktype='D'):
+def download_history_data(ktype='D', startTime=None):
     '''
     获取近3年不复权的历史k线数据
     '''
-    start = None
+    start = startTime
     conn = db.get_history_data_db(ktype)
     cost = 0
+
     for code in get_all_stock_code():
         cost = datetime.now()
-        try:
-            row = conn.execute(
-                config.sql_last_date_history_data_by_code % code).fetchone()
-            start = row[0]
-            dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
-            start = datetime.strftime(dt, '%Y-%m-%d')
-        except Exception, e:
-            logging.error('sql error %s' % e)
-            print e
         df = ts.get_hist_data(code=code, start=start, ktype=ktype)
-        if df is not None:
+        if df is not None and len(df) > 0:
             df.insert(0, 'code', code)
             try:
                 sql_df = df.loc[:, :]
                 sql.to_sql(sql_df, name='history_data', con=conn,
                            index=True, if_exists='append')
-                logging.info('%s,%s history data download ok.' % (code, start))
+                logging.info('%s,%s,%d history data download ok.' % (code, str(start), len(sql_df)))
             except Exception, e:
                 logging.error('error:code:%s,start:%s' % (code, start))
                 print e
@@ -112,26 +104,17 @@ def download_history_data(ktype='D'):
         logging.debug('%s,costs:%d s' %
                       (code, (datetime.now() - cost).seconds))
 
-
-def download_history_data_fq(autype='qfq'):
+def download_history_data_fq(autype='qfq', startTime=None):
     '''
     获取前复权的历史k线数据
     '''
 
     conn = db.get_history_data_db('D')
-    dic = {}
-    start = utils.today_last_year(6)
+    start = startTime
+    if startTime is None:
+        start = utils.today_last_year(6)
+
     for code in get_all_stock_code():
-        try:
-            row = conn.execute(
-                config.sql_last_date_history_data_qfq_by_code % code).fetchone()
-            start = row[0]
-            dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
-            start = datetime.strftime(dt, '%Y-%m-%d')
-        except Exception, e:
-            logging.error('sql error %s' % e)
-            start = utils.today_last_year(6)
-            print e
         df = ts.get_h_data(code, start=start, drop_factor=False)
         if df is not None:
             try:
@@ -144,7 +127,6 @@ def download_history_data_fq(autype='qfq'):
             except Exception, e:
                 logging.error('error:code:%s,start:%s' % (code, start))
                 print e
-    return dic
 
 
 def download_index_history_data(start=None, end=None):
@@ -211,16 +193,11 @@ def download_dd_data(start=None):
     获取大单数据
     '''
     conn = db.get_dd_data_db()
-
+    start = start
+    if start is None:
+        start = utils.today_last_year(1)
     for code in get_all_stock_code():
-        try:
-            row = conn.execute(config.sql_last_date_dd_data).fetchone()
-            start = row[0]
-            dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
-            start = dt
-        except Exception, e:
-            start = datetime.today().date() + timedelta(days=-365)
-            print e
+
         end = datetime.today().date()
         while start < end:
             date = end.strftime('%Y-%m-%d')
@@ -238,11 +215,27 @@ def download_dd_data(start=None):
                 pass
             start = start + timedelta(days=1)
 
-
 if __name__ == '__main__':
-    # download basics
-    # updata_all_stock_basics()
-    # download_history_data_fq()
-    # download_index_history_data()
-    download_index_history_data(start='20140101')
-    download_history_data()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-u', '--update_basics', help='update all stock basics', action='store_true')
+    parser.add_argument('-d', dest='start', help='download history data', action='store')
+    parser.add_argument('-dqfq', '--download_qfq', help='download history data (qfq)', action='store_true')
+    parser.add_argument('-di', '--download_index', help='download index data', action='store_true')
+    parser.add_argument('-dd', '--download_dd', help='download dd data', action='store_true')
+    args = parser.parse_args()
+    print args.start
+    if args.update_basics:
+        # download basics
+        updata_all_stock_basics()
+    if args.start:
+        if 'None' == args.start:
+            download_history_data(startTime=None)
+        else:
+            download_history_data(startTime=args.start)
+    if args.download_qfq:
+        download_history_data_fq()
+    if args.download_index:
+        download_index_history_data(start='20140101')
+    if args.download_dd:
+        download_dd_data()

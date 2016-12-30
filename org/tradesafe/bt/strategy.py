@@ -153,6 +153,9 @@ class abstrictStrategy(object):
         if row.macd > 0:
             self.order.order(tick, 1, row.code, row.close)
         if row.close > row.upperband:
+        if row.ma5 > row.ma10 :
+            self.order.order(tick, 1, row.code, row.close)
+        if row.ma5 < row.ma10:
             self.order.order(tick, 2, row.code, row.close)
         pass
 
@@ -198,8 +201,7 @@ class Metrics(object):
 
 if __name__ == '__main__':
 
-    a = abstrictStrategy(
-        stock_pool=['600036','000001'], start='2015-01-01', end='2016-12-01')
+    a = abstrictStrategy(stock_pool=['600036','000001'], start='2015-01-01', end='2016-12-01')
 
     # import matplotlib.pyplot as plt
     # import pandas as pd
@@ -212,6 +214,8 @@ if __name__ == '__main__':
     # plt.figure()
     # t.plot()
 
+
+    stock_pool=['600636'], start='2015-01-01', end='2016-08-01')
     a.run()
     print a.acount.cash, a.acount.get_value(), a.acount.get_assets(), a.acount.get_position_profit()
     # print a.order.net
