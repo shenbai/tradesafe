@@ -150,11 +150,14 @@ class Account(object):
         return self.get_assets() - self.initial_cash
 
     def update_price_of_position(self, code, price, date):
+        # TODO
         if code in self.positions:
             self.positions[code].update(market_price=price)
 
     def update_positon_history(self, code, price, date):
-
+        # TODO
+        pass
 
     def __repr__(self):
         return 'assets=%f, cash=%f, market_value=%f,profit=%f, position_profit=%f, positions=%s' %(self.get_assets(), self.cash, self.get_market_value(),self.get_profit(), self.get_position_profit(), str(self.positions))
+

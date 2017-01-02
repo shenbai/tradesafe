@@ -6,9 +6,9 @@ from pandas.io import sql
 import pandas as pd
 import sqlite3
 
+utils.mkdirs(config.data_dir)
 
 def get_history_data_db(ktype='D'):
-    utils.mkdirs(config.data_dir)
     if ktype == 'D':
         return sqlite3.connect(config.history_D_data_db_file)
     elif ktype == 'W':
@@ -26,6 +26,8 @@ def get_history_data_db(ktype='D'):
     else:
         return sqlite3.connect(config.history_D_data_db_file)
 
+def get_money_flow_db():
+    return sqlite3.connect(config.money_flow_data_db_file)
 
 def get_tick_history_db():
     utils.mkdirs(config.data_dir)
@@ -47,7 +49,10 @@ if __name__ == '__main__':
     # get_history_data_db().close()
     # get_tick_history_db().close()
     con = get_history_data_db()
+    # con.execute(config.TABLE_ALL_INDEX)
     # con.execute(config.IDX_ALL_INDEX_)
+    # con.execute(config.IDX_HISTORY_DATA_)
+    con.execute(config.TABLE_HISTORY_DATA_DAY)
     cur = con.execute(config.sql_last_date_index_all)
     print cur.fetchone()
     cur = con.execute('select count(*) from all_index')

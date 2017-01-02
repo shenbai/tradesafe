@@ -6,6 +6,8 @@ import datetime
 import time
 from org.tradesafe.bt.account import Account
 from org.tradesafe.bt.position import Position
+
+
 class AccountTest(unittest.TestCase):
 
     def testPosition(self):
@@ -39,4 +41,5 @@ class AccountTest(unittest.TestCase):
         print a
         a.sell('00', 11., num=-500, date=d)
         print a
+        import talib
 
