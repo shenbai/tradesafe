@@ -2,6 +2,7 @@
 __author__ = 'tack'
 from org.tradesafe.bt.log import logging as log
 from org.tradesafe.bt.position import Position
+from org.tradesafe.bt.position import PosstionHistory
 from math import *
 
 class Account(object):
@@ -36,6 +37,7 @@ class Account(object):
         # self.max_buy_mount = kwargs.get('max_buy_mount', 10000)
         self.min_fee = kwargs.get('minFee', 5)
         self.positions = {}
+        self.history_positions = PosstionHistory()
 
     def get_assets(self):
         '''
@@ -78,6 +80,7 @@ class Account(object):
                     return r, buy_position, msg
                 else:
                     self.positions[code] = buy_position
+                    self.history_positions.update(buy_position)
                     return True, buy_position, 'open a position'
             else:
                 return False,None, 'not enough available cash for %s' % code
@@ -147,16 +150,24 @@ class Account(object):
         return paper
 
     def get_profit(self):
+        '''
+        get total profit
+        :return:
+        '''
         return self.get_assets() - self.initial_cash
 
     def update_price_of_position(self, code, price, date):
-        # TODO
+        '''
+        update price of security every day,also update history positions
+        :param code:
+        :param price:
+        :param date:
+        :return:
+        '''
         if code in self.positions:
             self.positions[code].update(market_price=price)
+            self.history_positions.update(Position(code, self.positions[code].num, price, 0, date))
 
-    def update_positon_history(self, code, price, date):
-        # TODO
-        pass
 
     def __repr__(self):
         return 'assets=%f, cash=%f, market_value=%f,profit=%f, position_profit=%f, positions=%s' %(self.get_assets(), self.cash, self.get_market_value(),self.get_profit(), self.get_position_profit(), str(self.positions))

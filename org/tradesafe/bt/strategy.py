@@ -1,6 +1,9 @@
 # coding:utf-8
 
 from org.tradesafe.data.history_data import HistoryData
+from org.tradesafe.bt.account import Account
+from org.tradesafe.bt.order import Order
+from org.tradesafe.bt.btdata import BtData
 from datetime import datetime, timedelta
 import traceback
 import sys
@@ -20,70 +23,18 @@ class abstrictStrategy(object):
         end_date = kwargs.get('end')
         if start_date is None or end_date is None:
             raise Exception('no start,end time set')
-        self.datas = {}
-        for stock in self.stock_pool:
-            self.datas[stock] = self.hd.get_history_data(
-                code=stock, startDate=start_date, endDate=end_date)
-        start = datetime.strptime(start_date, '%Y-%m-%d')
-        end = datetime.strptime(end_date, '%Y-%m-%d')
-        self.ticks = []
-        while start <= end:
-            if start.weekday() < 5:
-                self.ticks.append(start.strftime('%Y-%m-%d'))
-            start = start + timedelta(days=1)
+        # self.datas = {}
+        # for stock in self.stock_pool:
+        #     self.datas[stock] = self.hd.get_history_data(
+        #         code=stock, startDate=start_date, endDate=end_date)
+        self.btData = BtData(stock_pool=stock_pool, **kwargs)
+
         if 'acount' in kwargs:
             self.acount = kwargs.get('acount')
         else:
-            self.acount = Acount(maxPosition=1, maxPositionPerShare=0.2)
-        if 'metrics' in kwargs:
-            self.metrics = kwargs.get('metrics')
-        else:
-            self.metrics = Metrics(
-                index_code='zs_000001', ticks=self.ticks, hd=self.hd)
-        self.order = Order(self.acount)
-        self.begin = None
-        self.end = None
-        self.p = 0
-
-        self.indicator()
+            self.acount = Account(maxPosition=1, maxPositionPerShare=0.2)
 
 
-    def indicator(self, **kwargs):
-        print '#####'
-        for df in self.datas.values():
-            macd, macdsignal, macdhist = talib.MACD(df.close.values, fastperiod=12, slowperiod=26, signalperiod=9)
-            df['macd'] = macd
-            df['macdsignal'] = macdsignal
-            df['macdhist'] = macdhist
-            k, d = talib.STOCH(df.high.values, df.low.values, df.close.values, fastk_period=5, slowk_period=3, slowk_matype=0, slowd_period=3, slowd_matype=0)
-            df['k'] = k
-            df['d'] = d
-            wr = talib.WILLR(df.high.values, df.low.values, df.close.values, timeperiod=14)
-            df['wr'] = wr
-            rsi = talib.RSI(df.close.values, timeperiod=14)
-            df['rsi'] = rsi
-            cr100 = talib.ROCR100(df.close.values, timeperiod=10)
-            df['cr100'] = cr100
-            adx = talib.ADX(df.high.values, df.low.values, df.close.values, timeperiod=14)
-            df['adx'] = adx
-            dx = talib.DX(df.high.values, df.low.values, df.close.values, timeperiod=14)
-            df['dx'] = dx
-            cci = talib.CCI(df.high.values, df.low.values, df.close.values, timeperiod=14)
-            df['cci'] = cci
-            upperband, middleband, lowerband = talib.BBANDS(df.close.values, timeperiod=5, nbdevup=2, nbdevdn=2, matype=0)
-            df['upperband'] = upperband
-            df['middleband'] = middleband
-            df['lowerband'] = lowerband
-            sar = talib.SAR(df.high.values, df.low.values, acceleration=0, maximum=0)
-            df['sar'] = sar
-            ad = talib.ADOSC(df.high.values, df.low.values, df.close.values, df.volume.values, fastperiod=3, slowperiod=10)
-            df['ad'] = ad
-            obv = talib.OBV(df.close.values, df.volume.values)
-            df['obv'] = obv
-            atr = talib.ATR(df.high.values, df.low.values, df.close.values, timeperiod=14)
-            df['atr'] = atr
-            pass
-        pass
 
     def run(self):
         '''
@@ -91,20 +42,18 @@ class abstrictStrategy(object):
         Returns:
         '''
         # dataFrames = self.datas.values()
-        for index in self.ticks:
+        for tick in self.btData.ticks:
             try:
+
                 for df in self.datas.values():
-                    row = df.ix[index]
-                    if len(row) > 3:
-                        self.acount.update(code=row.code, price=row.close)
-                        if self.begin is None:
-                            self.begin = index
-                        self.end = index
-                for df in self.datas.values():
-                    row = df.ix[index]
+                    row = df.ix[tick]
                     if len(row) > 3:
                         order = self.handle_data(
-                            tick=index, data=df.ix[:index], row=row)
+                            tick=tick, data=df.ix[:tick], row=row)
+                        self.acount.update_price_of_position(code=row.code, price=row.close, date=tick)
+                        if self.begin is None:
+                            self.begin = tick
+                        self.end = tick
             except Exception as e:
                 if not isinstance(e, KeyError):
                     pass
@@ -153,6 +102,7 @@ class abstrictStrategy(object):
         if row.macd > 0:
             self.order.order(tick, 1, row.code, row.close)
         if row.close > row.upperband:
+            pass
         if row.ma5 > row.ma10 :
             self.order.order(tick, 1, row.code, row.close)
         if row.ma5 < row.ma10:
@@ -215,7 +165,7 @@ if __name__ == '__main__':
     # t.plot()
 
 
-    stock_pool=['600636'], start='2015-01-01', end='2016-08-01')
+    a = Account(stock_pool=['600636'], start='2015-01-01', end='2016-08-01')
     a.run()
     print a.acount.cash, a.acount.get_value(), a.acount.get_assets(), a.acount.get_position_profit()
     # print a.order.net
