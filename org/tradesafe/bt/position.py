@@ -34,7 +34,7 @@ class Position(object):
         self.num += position.num
         self.cost_price = self.cost / self.num
         self.market_price = position.market_price
-        return True, 'done'
+        return True, 'buy'
 
     def sub(self, position=None):
         '''
@@ -50,10 +50,10 @@ class Position(object):
             self.update(market_price=position.market_price)
             if self.num == 0:
                 self.cost_price = 0.
-                return True, 'done'
+                return True, 'sell'
             self.cost_price = self.cost / self.num
 
-            return True, 'done'
+            return True, 'sell'
         else:
             return False, 'no enough stocks to sell'
 

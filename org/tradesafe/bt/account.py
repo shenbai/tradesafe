@@ -3,7 +3,10 @@ __author__ = 'tack'
 from org.tradesafe.bt.log import logging as log
 from org.tradesafe.bt.position import Position
 from org.tradesafe.bt.position import PosstionHistory
+from org.tradesafe.bt.order import Order
+from org.tradesafe.bt.order import OrderHistory
 from math import *
+import copy
 
 class Account(object):
     '''
@@ -38,6 +41,8 @@ class Account(object):
         self.min_fee = kwargs.get('minFee', 5)
         self.positions = {}
         self.history_positions = PosstionHistory()
+        self.history_orders = OrderHistory()
+        self.history_assets = []
 
     def get_assets(self):
         '''
@@ -62,7 +67,7 @@ class Account(object):
         total_available_cash = self.get_assets() * self.max_position - self.get_market_value()
         if total_available_cash <= 0:
             log.warning('total available cache less then 0, max position ratio is %f, current position ratio is %f' % (self.max_position, self.get_market_value()/self.get_assets()))
-            return False, None, 'not enough available cash'
+            return False, None, 'do not enough available cash'
         else:
             # if we hold this stock, market value can't exceed max_position_per_stock * assets
             current_market_value_of_this_position = 0.
@@ -70,22 +75,26 @@ class Account(object):
                 current_market_value_of_this_position += self.positions[code].get_market_value()
             available_cash = self.get_assets() * self.max_position_per_stock - self.get_market_value() - current_market_value_of_this_position
             if available_cash >= 0 and self.cash >= available_cash:
-                can_bun_num = int(floor(available_cash / (price * (1 + self.buy_commission)) / 100) * 100)
-                buy_num = min(num, can_bun_num)
-                buy_position = self.send_buy_cmd(code, buy_num, date, price=price)
+                can_buy_num = int(floor(available_cash / (price * (1 + self.buy_commission)) / 100) * 100)
+                buy_num = min(num, can_buy_num)
+                if buy_num < 100:
+                    return False, None, 'buy num should be n times of 100'
+                buy_position = self._send_buy_cmd(code, buy_num, date, price=price)
                 if buy_position is None:
                     return False, None, 'send_buy_cmd error, return position is None'
                 if code in self.positions:
                     r, msg = self.positions[code].add(buy_position)
+                    if r:
+                        self.history_orders.update(Order(code,buy_num,self.positions[code].num, price, price, buy_num*price*self.buy_commission,date,'buy'))
                     return r, buy_position, msg
                 else:
                     self.positions[code] = buy_position
-                    self.history_positions.update(buy_position)
+                    self.history_orders.update(Order(code,buy_num,self.positions[code].num, price, price, buy_num*price*self.buy_commission,date,'buy'))
                     return True, buy_position, 'open a position'
             else:
                 return False,None, 'not enough available cash for %s' % code
 
-    def send_buy_cmd(self, code, num, date, **kwargs):
+    def _send_buy_cmd(self, code, num, date, **kwargs):
         if 'price' in kwargs:
             price = kwargs.get('price')
             # simulate real trade
@@ -111,16 +120,18 @@ class Account(object):
             return False, 'refuse to sell security. keep at lest min_position %f' % self.min_position
         else:
             if code in self.positions:
-                sell_position = self.send_sell_cmd(code, min(num, self.positions[code].num), date, price=price)
+                sell_num = min(num, self.positions[code].num)
+                sell_position = self._send_sell_cmd(code, sell_num, date, price=price)
                 r, msg = self.positions[code].sub(sell_position)
                 if r:
+                    self.history_orders.update(Order(code,sell_num,self.positions[code].num, self.positions[code].cost_price, price, sell_num*price*self.sell_commission,date,'sell'))
                     if self.positions[code].num == 0:
                         del self.positions[code]
                 return r, sell_position, msg
             else:
                 return False, None, 'do not hold this stock ,can not sell'
 
-    def send_sell_cmd(self, code, num, date, **kwargs):
+    def _send_sell_cmd(self, code, num, date, **kwargs):
         if 'price' in kwargs:
             price = kwargs.get('price')
             # simulate real trade
@@ -138,7 +149,6 @@ class Account(object):
         for p in self.positions.values():
             value += p.get_market_value()
         return value
-
 
     def get_position_profit(self):
         '''
@@ -158,16 +168,20 @@ class Account(object):
 
     def update_price_of_position(self, code, price, date):
         '''
-        update price of security every day,also update history positions
+        update price of security every day,also update history positions very tick
         :param code:
         :param price:
         :param date:
         :return:
         '''
+        # update assets every day
+        self.history_assets.append((date, self.get_assets(), self.cash, self.get_market_value(), (self.get_assets() - self.initial_cash)/ self.initial_cash))
+        # update position information every day
         if code in self.positions:
             self.positions[code].update(market_price=price)
-            self.history_positions.update(Position(code, self.positions[code].num, price, 0, date))
-
+            p = copy.deepcopy(self.positions[code])
+            p.date = date
+            self.history_positions.update(p)
 
     def __repr__(self):
         return 'assets=%f, cash=%f, market_value=%f,profit=%f, position_profit=%f, positions=%s' %(self.get_assets(), self.cash, self.get_market_value(),self.get_profit(), self.get_position_profit(), str(self.positions))
