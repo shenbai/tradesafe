@@ -56,7 +56,7 @@ class BtData(object):
             df['dx'] = dx
             cci = talib.CCI(df.high.values, df.low.values, df.close.values, timeperiod=14)
             df['cci'] = cci
-            upperband, middleband, lowerband = talib.BBANDS(df.close.values, timeperiod=5, nbdevup=2, nbdevdn=2, matype=0)
+            upperband, middleband, lowerband = talib.BBANDS(df.close.values, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
             df['upperband'] = upperband
             df['middleband'] = middleband
             df['lowerband'] = lowerband
@@ -68,3 +68,14 @@ class BtData(object):
             df['obv'] = obv
             atr = talib.ATR(df.high.values, df.low.values, df.close.values, timeperiod=14)
             df['atr'] = atr
+            df['ma5'] = talib.MA(df.close.values, timeperiod=5)
+            df['ma10'] = talib.MA(df.close.values, timeperiod=10)
+            df['ma30'] = talib.MA(df.close.values, timeperiod=30)
+            df['ma60'] = talib.MA(df.close.values, timeperiod=60)
+            df['beta'] = talib.BETA(df.high.values, df.low.values, timeperiod=5)
+            df['l_angle'] = talib.LINEARREG_ANGLE(df.close.values, timeperiod=14)
+            df['l_intercept'] = talib.LINEARREG_INTERCEPT(df.close.values, timeperiod=14)
+            df['l_slope'] = talib.LINEARREG_SLOPE(df.close.values, timeperiod=14)
+            df['stddev'] = talib.STDDEV(df.close.values, timeperiod=5, nbdev=1)
+            df['tsf'] = talib.TSF(df.close.values, timeperiod=14)
+

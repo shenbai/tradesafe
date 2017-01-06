@@ -53,8 +53,8 @@ class abstrictStrategy(object):
                         # self.acount.update_price_of_position(code=row.code, price=row.close, date=tick)
                         order = self.handle_tick(tick=tick, data=df.ix[:tick], row=row)
                         self.acount.update_price_of_position(code=row.code, price=row.close, date=tick)
-                        if self.begin is None:
-                            self.begin = tick
+                        # if self.begin is None:
+                        #     self.begin = tick
                         self.end = tick
             except Exception as e:
                 logger.info('error %s' % e)
@@ -89,13 +89,24 @@ class abstrictStrategy(object):
         Returns:
         '''
         yestoday = self.get_one_data(data, -1)
-        if row.close < row.lowerband * 1.1:
+        # if row.close < row.lowerband :
+        if row.beta < 0:#good
+        # if row.l_slope > 0.1:#bad
             # print 'buy', row.close, row.middleband, row.date
-            self.acount.buy(row.code, row.close, num=1000, date=tick)
+            if not a.acount.buy_restriction_filter(data):
+                self.acount.buy(row.code, row.close, num=100000, date=tick)
+                if self.begin is None:
+                    self.begin = tick
 
-        if row.close > row.middleband and row.middleband > row.lowerband*1.1:
-            # print 'sell:' ,  row.close, row.middleband, row.date
-            self.acount.sell(row.code, row.close, num=1000, date=tick)
+        # if row.close > row.middleband and row.middleband > row.lowerband*1.1:
+        #     # print 'sell:' ,  row.close, row.middleband, row.date
+        #     self.acount.sell(row.code, row.close, num=1000000, date=tick)
+        # print row.lowerband, row.middleband,row.upperband, row.close
+        elif row.code in self.acount.positions and row.beta > 2:
+                        # row.close > row.sar:
+                        #self.acount.positions[row.code].get_profit_ratio() > 10:
+            if not a.acount.sell_restriction_filter(data):
+                self.acount.sell(row.code, row.close, num=100000, date=tick)
         pass
 
     def get_one_data(self, data, i):
@@ -136,33 +147,55 @@ class Metrics(object):
         return (e - b) / b
 
 if __name__ == '__main__':
-
-    a = abstrictStrategy(stock_pool=['600036'], start='2015-01-01', end='2016-12-01')
-    # import matplotlib.pyplot as plt
-    # import pandas as pd
-    # import matplotlib
-    # matplotlib.style.use('ggplot')
-    # t = pd.DataFrame(index=a.btData.datas['600036'].index)
-    # t['c'] = a.btData.datas['600036'].close
-    # t['sar'] = a.btData.datas['600036'].sar
+    code = '000014'
+    a = abstrictStrategy(stock_pool=[code], start='2015-01-01', end='2016-12-01')
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    import matplotlib
+    matplotlib.style.use('ggplot')
+    t = pd.DataFrame(index=a.btData.datas[code].index)
+    # print a.btData.datas[code].head()
+    t['c'] = a.btData.datas[code].close
+    # t['ma5'] = a.btData.datas[code].ma5
+    # t['ma10'] = a.btData.datas[code].ma10
+    t['beta'] = a.btData.datas[code].beta
+    t['l_angle'] = a.btData.datas[code].l_angle
+    # t['l_intercept'] = a.btData.datas[code].l_intercept
+    # t['l_slope'] = a.btData.datas[code].l_slope
+    # t['sar'] = a.btData.datas[code].sar
+    # print t['sar']
     # print t.tail()
     # plt.figure()
-    # t.plot()
+
 
     print a.acount.cash, a.acount.get_market_value(), a.acount.get_assets(), a.acount.get_position_profit()
     a.run()
 
-    # for ph in a.acount.history_positions.get_history('600036'):
+    # for ph in a.acount.history_positions.get_history(code):
     #     print ph
     # print '############################# history order #####################'
-    # for oh in a.acount.history_orders.get_history('600036'):
-    #     print oh
+
+    bs = []
+    t['bs'] = 0
+    for oh in a.acount.history_orders.get_history(code):
+        print oh
+        if oh.date in t.index:
+            if 'buy' == oh.cmd:
+                t.ix[oh.date]['bs'] = 5
+            elif 'sell' == oh.cmd:
+                t.ix[oh.date]['bs'] = -5
+            # t.ix[oh.date]['bs']= oh.cmd
+
+    # t.ix['2015-08-07']['bs'] = 10
+    # print t.ix['2015-08-07']['bs']
     # print '############################# history assets #####################'
     # for x in a.acount.history_assets:
     #     print x
-    print 'total_profit=', a.acount.history_orders.get_total_profit('600036')
+    print 'total_profit=', a.acount.history_orders.get_total_profit(code)
 
     print a.acount.cash, a.acount.get_market_value(), a.acount.get_assets(), a.acount.get_position_profit()
 
-
     print a.baseline(), (a.acount.get_assets() - a.acount.initial_cash)/a.acount.initial_cash
+    print t.head()
+    t.plot()
+    plt.show()

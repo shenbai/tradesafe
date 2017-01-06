@@ -24,7 +24,10 @@ class Order(object):
         self.market_price = market_price
         self.cost = self.cost_price * num + commission
         self.cmd = cmd
-        self.profit = (self.market_price - self.cost_price) * num - self.commission
+        if (self.hold_num == 0 and 'sell' == self.cmd):
+            self.profit = (self.market_price - self.cost_price) * num - self.commission
+        else:
+            self.profit = 0 - self.commission
 
 
     def __repr__(self):
