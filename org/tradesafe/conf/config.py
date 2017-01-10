@@ -1,6 +1,6 @@
 # coding: utf-8
-data_dir = '/Users/tack/ts/data'
-log_dir = '/Users/tack/ts/log'
+data_dir = 'D:/home/tack/data'
+log_dir = 'D:/home/tack/data'
 history_D_data_db_file = data_dir + '/history_data_D.db'
 history_W_data_db_file = data_dir + '/history_data_W.db'
 history_M_data_db_file = data_dir + '/history_data_M.db'
@@ -87,6 +87,7 @@ sql_history_data_all = 'select * from history_data order by code, date([date]) a
 sql_history_data_by_code = 'select * from history_data where code="%s" order by date([date]) asc'
 sql_history_data_by_code_date_between = "select * from history_data where code='%s' " \
                                    "and date([date])>='%s' and date([date])<='%s' order by date([date]) asc"
-
+sql_history_data_by_date_between = "select * from history_data where " \
+                                   "date([date])>='%s' and date([date])<='%s' order by date([date]) asc"
 sql_history_data_qfq_by_code_date_between = "select * from history_data_qfq where code='%s' " \
                                         "and date([date])>='%s' and date([date])<='%s' order by date([date]) asc"
