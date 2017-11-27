@@ -54,6 +54,21 @@ class Account(object):
     def is_hold(self, code):
         return code in self.positions
 
+    def buy_restriction_filter(self, data):
+        is_up_limit = True # can't buy by price great then limit price
+        if len(data.index) >= 2:
+            r = (data[-1:].close[0] - data[-2:].close[0]) / data[-2:].close[0]
+            is_up_limit = r >= 0.095
+        return is_up_limit
+
+
+    def sell_restriction_filter(self, data):
+        is_low_limit = True # can't sell if price go down to low limit price
+        if len(data.index) >= 2:
+            is_low_limit = (data[-1:].close[0] - data[-2:].close[0]) / data[-2:].close[0] <= -0.095
+        return is_low_limit
+
+
     def buy(self, code, price, num=100, date=None):
         '''
         buy security
@@ -120,11 +135,12 @@ class Account(object):
             return False, 'refuse to sell security. keep at lest min_position %f' % self.min_position
         else:
             if code in self.positions:
+                previous_cost_price = self.positions[code].cost_price
                 sell_num = min(num, self.positions[code].num)
                 sell_position = self._send_sell_cmd(code, sell_num, date, price=price)
                 r, msg = self.positions[code].sub(sell_position)
                 if r:
-                    self.history_orders.update(Order(code,sell_num,self.positions[code].num, self.positions[code].cost_price, price, sell_num*price*self.sell_commission,date,'sell'))
+                    self.history_orders.update(Order(code,sell_num,self.positions[code].num, previous_cost_price, price, sell_num*price*self.sell_commission,date,'sell'))
                     if self.positions[code].num == 0:
                         del self.positions[code]
                 return r, sell_position, msg

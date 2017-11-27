@@ -36,18 +36,18 @@ class Position(object):
         self.market_price = position.market_price
         return True, 'buy'
 
-    def sub(self, position=None):
+    def sub(self, sell_position=None):
         '''
         sell some
         '''
-        if position is None:
+        if sell_position is None:
             raise Exception('position is none')
-        if position.code != self.code:
+        if sell_position.code != self.code:
             raise Exception('sub op can not apply on different stocks')
-        if position.num <= self.num:
-            self.cost -= position.get_market_value()   # total cost - market value
-            self.num -= position.num
-            self.update(market_price=position.market_price)
+        if sell_position.num <= self.num:
+            self.cost -= sell_position.get_market_value()   # total cost - market value
+            self.num -= sell_position.num
+            self.update(market_price=sell_position.market_price)
             if self.num == 0:
                 self.cost_price = 0.
                 return True, 'sell'
@@ -85,6 +85,10 @@ class Position(object):
         paper loss, paper gain
         '''
         return self.get_market_value() - self.cost
+
+    def get_profit_ratio(self):
+        return (self.get_market_value() - self.cost) / self.cost * 100
+
 
     def __repr__(self):
         return 'code=%s,cost=%f,cost_price=%f, market_price=%f,num=%d,value=%f,profit=%f,date=%s' % (self.code, self.cost, self.cost_price,self.market_price, self.num, self.get_market_value(), self.get_profit(), self.date)

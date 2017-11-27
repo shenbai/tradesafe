@@ -65,7 +65,9 @@ class HistoryData(object):
         '''
         从sqlite中加载历史k线数据
         '''
+
         # conn = db.get_history_data_db(ktype)
+
         try:
             # if code is not None and endDate is not None:
             #     df = pd.read_sql_query(config.sql_history_data_by_code_date_lt % (code,endDate), self.history_data_db_conn)
@@ -89,6 +91,16 @@ class HistoryData(object):
             self.log.info(e)
         return None
 
+    def get_history_data_all(self, ktype='D', startDate=None, endDate=None):
+        conn = db.get_history_data_db(ktype)
+        try:
+            df = pd.read_sql_query(config.sql_history_data_by_date_between % (startDate, endDate), conn)
+            df = df.set_index(df['date'])
+            return df
+        except Exception as e:
+            self.log.error(e)
+        return None
+
     def get_history_data_qfq(self, code=None, startDate=None, endDate=None):
         '''
         获取前复权的历史k线数据
@@ -100,7 +112,7 @@ class HistoryData(object):
                 code, startDate, endDate), self.history_data_db_conn)
             return df
         except Exception as e:
-            self.log.info(e)
+            self.log.error(e)
         return None
 
     def get_index_history(self, code=None):
