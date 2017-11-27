@@ -138,19 +138,31 @@ class Metrics(object):
 if __name__ == '__main__':
 
     a = abstrictStrategy(stock_pool=['600036'], start='2015-01-01', end='2016-12-01')
-    # import matplotlib.pyplot as plt
-    # import pandas as pd
-    # import matplotlib
-    # matplotlib.style.use('ggplot')
-    # t = pd.DataFrame(index=a.btData.datas['600036'].index)
-    # t['c'] = a.btData.datas['600036'].close
+    import pandas as pd
+    import numpy as np
+    import matplotlib.colors as colors
+    import matplotlib.finance as finance
+    import matplotlib.dates as mdates
+    import matplotlib.ticker as mticker
+    import matplotlib.mlab as mlab
+    import matplotlib.pyplot as plt
+    import matplotlib.font_manager as font_manager
+
+    t = pd.DataFrame(index=a.btData.datas['600036'].index)
+    t['c'] = a.btData.datas['600036'].close
     # t['sar'] = a.btData.datas['600036'].sar
     # print t.tail()
-    # plt.figure()
-    # t.plot()
 
-    print a.acount.cash, a.acount.get_market_value(), a.acount.get_assets(), a.acount.get_position_profit()
-    a.run()
+    t['bu'] = a.btData.datas['600036'].upperband
+    t['mi'] = a.btData.datas['600036'].middleband
+    t['lo'] = a.btData.datas['600036'].lowerband
+
+    # plt.figure()
+    t.plot()
+    plt.show()
+
+    # print a.acount.cash, a.acount.get_market_value(), a.acount.get_assets(), a.acount.get_position_profit()
+    # a.run()
 
     # for ph in a.acount.history_positions.get_history('600036'):
     #     print ph
@@ -160,9 +172,9 @@ if __name__ == '__main__':
     # print '############################# history assets #####################'
     # for x in a.acount.history_assets:
     #     print x
-    print 'total_profit=', a.acount.history_orders.get_total_profit('600036')
-
-    print a.acount.cash, a.acount.get_market_value(), a.acount.get_assets(), a.acount.get_position_profit()
-
-
-    print a.baseline(), (a.acount.get_assets() - a.acount.initial_cash)/a.acount.initial_cash
+    # print 'total_profit=', a.acount.history_orders.get_total_profit('600036')
+    #
+    # print a.acount.cash, a.acount.get_market_value(), a.acount.get_assets(), a.acount.get_position_profit()
+    #
+    #
+    # print a.baseline(), (a.acount.get_assets() - a.acount.initial_cash)/a.acount.initial_cash

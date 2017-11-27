@@ -68,3 +68,8 @@ class BtData(object):
             df['obv'] = obv
             atr = talib.ATR(df.high.values, df.low.values, df.close.values, timeperiod=14)
             df['atr'] = atr
+            df['ma5'] = talib.MA(df.close.values, timeperiod=5)
+            df['ma10'] = talib.MA(df.close.values, timeperiod=10)
+            df['ma30'] = talib.MA(df.close.values, timeperiod=30)
+            df['ma60'] = talib.MA(df.close.values, timeperiod=60)
+            df['ma120'] = talib.MA(df.close.values, timeperiod=120)

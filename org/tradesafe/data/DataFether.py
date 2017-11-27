@@ -1,34 +1,38 @@
 # coding:utf-8
 
-from datetime import datetime, time, timedelta
-import os
+from datetime import datetime, timedelta
+# from urllib import Request, urlopen
+from urllib import request
 
-from pandas.io import sql
-from org.tradesafe.utils import utils
-from org.tradesafe.data.index_code_conf import indices
-from org.tradesafe.conf import config
-from org.tradesafe.db import sqlite_db as db
+import demjson
 import pandas as pd
 import tushare as ts
-from urllib2 import Request, urlopen
-import demjson
-from org.tradesafe.conf import config
-from org.tradesafe.utils import utils
-from org.tradesafe.bt.log import logging as log
+from pandas.io import sql
 
+from org.tradesafe.bt.log import logging as log
+from org.tradesafe.conf import config
+from org.tradesafe.data.index_code_conf import indices
+from org.tradesafe.db import sqlite_db as db
+from org.tradesafe.utils import utils
 
 utils.mkdirs(config.log_dir)
+log = utils.mylog
+slog = utils.statelog
+get_laste_update_dt = utils.get_laste_update_dt
+
 retry = 3
-#历史数据
+# 历史数据
 sohu_history_api = 'http://q.stock.sohu.com/hisHq?code=%s&start=%s&end=%s&stat=1&order=D&period=d'
 sina_money_flow_api = 'http://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/MoneyFlow.ssl_qsfx_zjlrqs?page=1&num=%d&sort=opendate&asc=0&daima=%s'
 default_start_time = '20100101'
+
 
 def append_stock_perfix(code):
     if code.startswith('00') or code.startswith('30'):
         return 'sz%s' % code
     if code.startswith('60'):
         return 'sh%s' % code
+
 
 def get_all_stock_code():
     '''
@@ -40,8 +44,8 @@ def get_all_stock_code():
         df = pd.read_sql_query(
             'select * from stock_basics where [timeToMarket] !=0', conn)
         return df['code']
-    except Exception, e:
-        print e
+    except Exception as e:
+        log.error(e)
 
 
 def updata_all_stock_basics():
@@ -76,11 +80,12 @@ def updata_all_stock_basics():
                 sql_df = df.loc[:, :]
                 sql.to_sql(sql_df, name='stock_basics', con=conn,
                            index=True, if_exists='replace')
-                log.info('all stock basics updated')
+                log.info('all stock basics updated, total size=%d' % len(df))
                 break
-        except Exception, e:
+        except Exception as e:
             log.error(e)
     conn.close()
+
 
 def download_history_data_fq(autype='qfq', startTime=None):
     '''
@@ -99,11 +104,11 @@ def download_history_data_fq(autype='qfq', startTime=None):
                 df.insert(0, 'code', code)
                 sql_df = df.loc[:, :]
                 sql.to_sql(sql_df, name='history_data_%s' %
-                           autype, con=conn, index=True, if_exists='append')
+                                        autype, con=conn, index=True, if_exists='append')
                 log.info('%s,%s history qfq data download ok.' % (code, start))
-            except Exception, e:
+            except Exception as e:
                 log.error('error:code:%s,start:%s' % (code, start))
-                print e
+
 
 def download_history_data(ktype='D', start=None, end=None, init_run=False):
     '''
@@ -121,38 +126,42 @@ def download_history_data(ktype='D', start=None, end=None, init_run=False):
     for code in get_all_stock_code():
         cost = datetime.now()
         if start is None:
-            row = conn.execute(config.sql_last_date_history_data_by_code % code).fetchone()
-            if row != None:
-                start = row[0]
-                dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
+            _start = get_laste_update_dt(code)
+            if _start is not None:
+                dt = datetime.strptime(_start, '%Y-%m-%d') + timedelta(days=1)
                 start = datetime.strftime(dt, '%Y%m%d')
             else:
-                start = default_start_time
+                row = conn.execute(config.sql_last_date_history_data_by_code % code).fetchone()
+                if row is not None:
+                    start = row[0]
+                    dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
+                    start = datetime.strftime(dt, '%Y%m%d')
+                else:
+                    start = default_start_time
         for i in range(retry):
             try:
                 url = sohu_history_api % ('cn_' + code, start, end)
-                res = Request(url)
-                text = urlopen(res, timeout=10).read()
+                text = request.urlopen(url, timeout=10).read()
                 text = text.decode('GBK')
                 log.info('url=%s,size=%d, try=%d' % (url, len(text), i))
                 if len(text) < 20:
                     continue
                 j = demjson.decode(text, 'utf-8')
-                head = ['date', 'open', 'close', 'chg', 'chg_r', 'low', 'heigh', 'vibration', 'volume',
+                head = ['date', 'open', 'close', 'chg', 'chg_r', 'low', 'high', 'vibration', 'volume',
                         'amount', 'turnover']  # 日期    开盘    收盘    涨跌额    涨跌幅    最低    最高    成交量(手)    成交金额(万)
                 # 日期	开盘	收盘	涨跌额	涨跌幅	最低	最高	成交量(手)	成交金额(万)	换手率
                 data = []
 
                 for x in j[0].get('hq'):
-                    date, open, close, change, _, low, heigh, valume, amount, turnover = x
+                    date, open, close, change, _, low, high, valume, amount, turnover = x
                     if '-' == turnover:
                         turnover = '0.0%'
                     chg_r = '%.4f' % ((float(close) - float(open)) / float(open))
-                    vibration = '%.4f' % float((float(heigh) - float(low)) / float(open))
+                    vibration = '%.4f' % float((float(high) - float(low)) / float(open))
                     chg_r = float(chg_r)
                     vibration = float(vibration)
                     data.append(
-                        [date, float(open), float(close), float(change), float(chg_r), float(low), float(heigh),
+                        [date, float(open), float(close), float(change), float(chg_r), float(low), float(high),
                          float(vibration), float(valume), float(amount), float(turnover[:-1])])
 
                 df = pd.DataFrame(data, columns=head)
@@ -161,14 +170,16 @@ def download_history_data(ktype='D', start=None, end=None, init_run=False):
                     sql_df = df.loc[:, :]
                     sql.to_sql(sql_df, name='history_data', con=conn, index=False, if_exists='append')
                     log.info('%s,%s,%d history data download ok.' % (code, str(start), len(sql_df)))
+                    slog.info('%s,%s' % (code, data[0][0]))
                     break
-            except Exception, e:
+            except Exception as e:
                 log.error('error:code=%s,start=%s,msg=%s' % (code, start, e))
                 if str(e).find('UNIQUE constraint') > -1:
                     break
         log.debug('%s,costs:%d s' % (code, (datetime.now() - cost).seconds))
     conn.close()
     log.info('history data download complete. cost %d s' % (datetime.now() - cur_time).seconds)
+
 
 def download_index_history_data(start=None, end=None, init_run=False):
     '''
@@ -179,44 +190,44 @@ def download_index_history_data(start=None, end=None, init_run=False):
     conn = db.get_history_data_db()
     if init_run:
         start = default_start_time
-    if start == None:
+    if start is None:
         try:
             onerow = conn.execute(config.sql_last_date_index_all).fetchone()
-            if onerow != None:
+            if onerow is not None:
                 start = onerow[0]
                 dt = datetime.strptime(start, '%Y-%m-%d') + timedelta(days=1)
                 start = datetime.strftime(dt, '%Y%m%d')
             else:
                 start = default_start_time
-        except Exception, e:
+        except Exception as e:
             start = default_start_time
 
-    if end == None:
+    if end is None:
         end = datetime.today().date().strftime('%Y%m%d')
-    print start, end
+    print(start, end)
     if int(end) <= int(start):
         return None
     for code in indices.keys():
         for i in range(retry):
             try:
                 url = sohu_history_api % (code, start, end)
-                res = Request(url)
-                text = urlopen(res, timeout=10).read()
+
+                text = request.urlopen(url, timeout=10).read()
                 text = text.decode('GBK')
                 log.info('url=%s,size=%d, try=%d' % (url, len(text), i))
                 if len(text) < 20:
                     continue
                 j = demjson.decode(text, 'utf-8')
-                head = ['date', 'open', 'close', 'chg', 'chg_r', 'low', 'heigh', 'vibration', 'volume',
+                head = ['date', 'open', 'close', 'chg', 'chg_r', 'low', 'high', 'vibration', 'volume',
                         'amount']  # 日期    开盘    收盘    涨跌额    涨跌幅    最低    最高    成交量(手)    成交金额(万)
-                #日期	开盘	收盘	涨跌额	涨跌幅	最低	最高	成交量(手)	成交金额(万)	换手率
+                # 日期	开盘	收盘	涨跌额	涨跌幅	最低	最高	成交量(手)	成交金额(万)	换手率
                 data = []
                 for x in j[0].get('hq'):
-                    date, open, close, change, _, low, heigh, valume, amount, _ = x
+                    date, open, close, change, _, low, high, valume, amount, _ = x
                     chg_r = '%.4f' % ((float(close) - float(open)) / float(open))
-                    vibration = '%.4f' % (float((float(heigh) - float(low)) / float(open)))
+                    vibration = '%.4f' % (float((float(high) - float(low)) / float(open)))
                     # print date, vibration, str(float(vibration))
-                    data.append([date, float(open), float(close), float(change), float(chg_r), float(low), float(heigh),
+                    data.append([date, float(open), float(close), float(change), float(chg_r), float(low), float(high),
                                  float(vibration), float(valume), float(amount)])
 
                     # sql_str = 'insert OR IGNORE into all_index values(?,?,?,?,?,?,?,?,?,?,?)'
@@ -229,7 +240,7 @@ def download_index_history_data(start=None, end=None, init_run=False):
                     sql.to_sql(sql_df, name='all_index', con=conn, index=False, if_exists='append')
                     log.info('%s,%s index history download ok.' % (code, start))
                     break
-            except Exception, e:
+            except Exception as e:
                 log.error(e)
     conn.close()
     log.info('index history data download complete. cost %d s' % (datetime.now() - cur_time).seconds)
@@ -249,36 +260,33 @@ def download_money_flow_data(num=1000):
         for i in range(retry):
             try:
                 url = sina_money_flow_api % (num, code)
-                res = Request(url)
-                text = urlopen(res, timeout=10).read()
+                text = request.urlopen(url, timeout=10).read()
                 text = text.decode('GBK')
                 log.info('url=%s,size=%d, try=%d' % (url, len(text), i))
                 if len(text) < 10:
                     continue
-                print '1'
                 # j = demjson.decode(text, 'utf-8') #json很大的时候效率非常查
                 text = text[2:-2]
-                j = text.replace('"','').split('},{')
-                # print j
-                print '2'
-                head = ['date', 'close', 'chg_r', 'turnover', 'netamount', 'ratio', 'zl_netamount', 'zl_ratio', 'cat_ratio']
+                j = text.replace('"', '').split('},{')
+                head = ['date', 'close', 'chg_r', 'turnover', 'netamount', 'ratio', 'zl_netamount', 'zl_ratio',
+                        'cat_ratio']
                 # 日期	收盘价	涨跌幅	换手率	净流入   	净流入率	主力净流入	    主力净流入率	行业净流入率
                 data = []
 
                 for x in j:
                     m = {}
                     for s in x.split(','):
-                        k,v = s.split(':')
+                        k, v = s.split(':')
                         if '-' == v or 'null' == v:
                             v = '0.0'
-                        m[k]=v
+                        m[k] = v
                     date = m['opendate']
                     close = float(m['trade'])
                     chg_r = float(m['changeratio'])
-                    turnover = float(m['turnover'])/10000
-                    netamount = float(m['netamount'])/10000
+                    turnover = float(m['turnover']) / 10000
+                    netamount = float(m['netamount']) / 10000
                     ratio = float(m['ratioamount'])
-                    zl_netamount = float(m['r0_net'])/10000
+                    zl_netamount = float(m['r0_net']) / 10000
                     zl_ratio = float(m['r0_ratio'])
                     cat_ratio = float(m['cate_ra'])
                     data.append([date, close, chg_r, turnover, netamount, ratio, zl_netamount, zl_ratio, cat_ratio])
@@ -291,13 +299,14 @@ def download_money_flow_data(num=1000):
                     sql.to_sql(sql_df, name='money_flow', con=conn, index=False, if_exists='append')
                     log.info('%s,%s,%d money flow data download ok.' % (code, str(start), len(sql_df)))
                     break
-            except Exception, e:
+            except Exception as e:
                 log.error('error:code=%s,start=%s,msg=%s' % (code, start, e))
         log.debug('%s,costs:%d s' % (code, (datetime.now() - cost).seconds))
     conn.close()
     log.info('money flow data download complete. cost %d s' % (datetime.now() - cur_time).seconds)
 
     pass
+
 
 def download_dd_data(start=None):
     '''
@@ -320,11 +329,11 @@ def download_dd_data(start=None):
                     sql.to_sql(sql_df, name='dd_data', con=conn,
                                index=True, if_exists='append')
                     log.info('%s,%s dd data download ok.' % (code, start))
-                except Exception, e:
+                except Exception as e:
                     log.error('download error:%s,%s' % (code, date))
-                    print e
                 pass
             start = start + timedelta(days=1)
+
 
 if __name__ == '__main__':
     # download_index_history_data(init_run=True)
@@ -334,6 +343,7 @@ if __name__ == '__main__':
     # exit(0)
 
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-u', '--update_basics', help='update all stock basics', action='store_true')
     parser.add_argument('-d', '--download', help='download history data', action='store_true')
@@ -371,7 +381,7 @@ if __name__ == '__main__':
 
     if args.download_index:
         if args.init_run:
-            download_index_history_data(start=start,end=end, init_run=True)
+            download_index_history_data(start=start, end=end, init_run=True)
         else:
             download_index_history_data(start=start, end=end)
 
@@ -383,5 +393,3 @@ if __name__ == '__main__':
             download_money_flow_data(int(args.num))
         else:
             download_money_flow_data()
-
-

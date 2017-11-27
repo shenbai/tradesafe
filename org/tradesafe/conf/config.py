@@ -1,6 +1,8 @@
 # coding: utf-8
+
 data_dir = '/Users/tack/ts/data'
 log_dir = '/Users/tack/ts/log'
+
 history_D_data_db_file = data_dir + '/history_data_D.db'
 history_W_data_db_file = data_dir + '/history_data_W.db'
 history_M_data_db_file = data_dir + '/history_data_M.db'
@@ -14,8 +16,8 @@ tasks_db_file = data_dir + '/task.db'
 dd_data_db_file = data_dir + '/dd_data.db'
 memo_file = data_dir + '.memo'
 model_dir = data_dir + '/models'
-from org.tradesafe.utils import utils
 
+from org.tradesafe import utils
 utils.mkdirs(model_dir)
 utils.mkdirs(log_dir)
 

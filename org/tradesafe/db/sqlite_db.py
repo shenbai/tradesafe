@@ -26,8 +26,10 @@ def get_history_data_db(ktype='D'):
     else:
         return sqlite3.connect(config.history_D_data_db_file)
 
+
 def get_money_flow_db():
     return sqlite3.connect(config.money_flow_data_db_file)
+
 
 def get_tick_history_db():
     utils.mkdirs(config.data_dir)
@@ -43,8 +45,9 @@ def get_tasks_db():
     utils.mkdirs(config.data_dir)
     return sqlite3.connect(config.tasks_db_file)
 
+
 if __name__ == '__main__':
-    print config.sql_last_date_index_all
+    print(config.sql_last_date_index_all)
     # get_tasks_db().close()
     # get_history_data_db().close()
     # get_tick_history_db().close()
@@ -54,9 +57,9 @@ if __name__ == '__main__':
     # con.execute(config.IDX_HISTORY_DATA_)
     con.execute(config.TABLE_HISTORY_DATA_DAY)
     cur = con.execute(config.sql_last_date_index_all)
-    print cur.fetchone()
+    print(cur.fetchone())
     cur = con.execute('select count(*) from all_index')
-    print cur.fetchone()[0]
+    print(cur.fetchone()[0])
     # df = pd.read_sql_query('select * from all_index', con)
     # print len(df.values)
     # print type(df.axes[0])

@@ -27,7 +27,7 @@ def create_lagged_series(symbol, start_date, end_date, lags=5):
                     datetime.timedelta(days=365), end_date)
     # print ts
     # Create the new lagged DataFrame
-    print len(ts)
+    print(len(ts))
     tslag = pd.DataFrame(index=ts.index)
     tslag["Today"] = ts["Adj Close"]
     tslag["Volume"] = ts["Volume"]
