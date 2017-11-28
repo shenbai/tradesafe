@@ -125,7 +125,6 @@ class DataGen(object):
                             y_today = ALL_y[i + self.time_step]
                             batch_X.append(X)
                             batch_y.append((y.max() - y_today) / y_today)
-                            batch_y.append(y.max())
                             i += 1
                             if len(batch_y) == self.batch_size:
                                 yield array(batch_X), array(batch_y).reshape(
