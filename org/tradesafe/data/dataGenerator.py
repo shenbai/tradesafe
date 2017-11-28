@@ -70,6 +70,7 @@ class DataGen(object):
                     batch_y = []
                     ALL_X = df[self.feats].as_matrix().astype(float)
                     ALL_y = df[[self.label_column]].as_matrix().astype(float)
+                    batch_y_ = []
 
                     while i < len(df) - self.pred_day - max(
                             self.time_step, self.batch_size):
@@ -77,9 +78,10 @@ class DataGen(object):
                         X = ALL_X[i:i + self.time_step]
                         y = ALL_y[i + self.time_step:
                                   i + self.time_step + self.pred_day]
-
+                        y_today = ALL_y[i + self.time_step]
                         batch_X.append(X)
-                        batch_y.append(y.max())
+                        batch_y.append((y.max()-y_today)/y_today)
+                        batch_y_.append(y.max())
                         i += 1
                         if len(batch_y) == self.batch_size:
                             yield array(batch_X), array(batch_y).reshape(
