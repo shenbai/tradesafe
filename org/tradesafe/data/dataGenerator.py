@@ -54,7 +54,7 @@ class DataGen(object):
 
         self.hd = HistoryData()
         mylog.info('loading all data')
-        df = hd.get_history_data_all()
+        df = self.hd.get_history_data_all()
         df = df.sort_values(by=sort_by)
         dfg = df.groupby(by=group_by)
         self.all_data = dfg
