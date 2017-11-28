@@ -122,8 +122,9 @@ class DataGen(object):
                             X = ALL_X[i:i + self.time_step]
                             y = ALL_y[i + self.time_step:
                                       i + self.time_step + self.pred_day]
-
+                            y_today = ALL_y[i + self.time_step]
                             batch_X.append(X)
+                            batch_y.append((y.max() - y_today) / y_today)
                             batch_y.append(y.max())
                             i += 1
                             if len(batch_y) == self.batch_size:
@@ -132,6 +133,19 @@ class DataGen(object):
                                 batch_X = []
                                 batch_y = []
 
+
+def next_predict_example(self):
+        '''
+        :return: batch examples
+        '''
+        for k, g in self.all_data:
+            if g is not None and not g.empty:
+                batch_X = []
+                ALL_X = g[self.feats].as_matrix().astype(float)
+                X = ALL_X[0-self.time_step:]
+                batch_X.append(X)
+                yield k, array(batch_X)
+                batch_X = []
 
 if __name__ == '__main__':
     names = 'date,code,open,close,chg,chg_r,low,high,vibration,volume,amount,turnover'.split(
