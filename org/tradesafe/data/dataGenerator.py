@@ -4,6 +4,7 @@ from numpy import array
 # from sklearn.cross_validation import train_test_split
 from sklearn.model_selection import train_test_split
 from org.tradesafe.data.history_data import HistoryData
+from org.tradesafe.utils.utils import mylog
 
 
 class DataGen(object):
@@ -52,76 +53,84 @@ class DataGen(object):
         self.dim = len(self.feats)
 
         self.hd = HistoryData()
+        mylog.info('loading all data')
+        df = hd.get_history_data_all()
+        df = df.sort_values(by=sort_by)
+        dfg = df.groupby(by=group_by)
+        self.all_data = dfg
+        mylog.info('data load complete')
 
     def next_val_batch(self):
         '''
         :return: batch examples of validate dataset
         '''
         while 1:
-            for val_code in self.val_codes:
-                df = self.hd.get_history_data(code=val_code)
-                if df is not None and not df.empty:
-                    if len(
-                            df
-                    ) < self.time_step + self.batch_size + self.pred_day:
-                        continue
-                    i = 0
-                    batch_X = []
-                    batch_y = []
-                    ALL_X = df[self.feats].as_matrix().astype(float)
-                    ALL_y = df[[self.label_column]].as_matrix().astype(float)
-                    batch_y_ = []
+            for k, g in self.all_data:
+                if k in self.val_codes:
+                    if g is not None and not g.empty:
+                        if len(
+                                g
+                        ) < self.time_step + self.batch_size + self.pred_day:
+                            continue
+                        i = 0
+                        batch_X = []
+                        batch_y = []
+                        ALL_X = g[self.feats].as_matrix().astype(float)
+                        ALL_y = g[[self.label_column
+                                   ]].as_matrix().astype(float)
+                        batch_y_ = []
 
-                    while i < len(df) - self.pred_day - max(
-                            self.time_step, self.batch_size):
+                        while i < len(g) - self.pred_day - max(
+                                self.time_step, self.batch_size):
 
-                        X = ALL_X[i:i + self.time_step]
-                        y = ALL_y[i + self.time_step:
-                                  i + self.time_step + self.pred_day]
-                        y_today = ALL_y[i + self.time_step]
-                        batch_X.append(X)
-                        batch_y.append((y.max()-y_today)/y_today)
-                        batch_y_.append(y.max())
-                        i += 1
-                        if len(batch_y) == self.batch_size:
-                            yield array(batch_X), array(batch_y).reshape(
-                                self.batch_size, 1)
-                            batch_X = []
-                            batch_y = []
+                            X = ALL_X[i:i + self.time_step]
+                            y = ALL_y[i + self.time_step:
+                                      i + self.time_step + self.pred_day]
+                            y_today = ALL_y[i + self.time_step]
+                            batch_X.append(X)
+                            batch_y.append((y.max() - y_today) / y_today)
+                            batch_y_.append(y.max())
+                            i += 1
+                            if len(batch_y) == self.batch_size:
+                                yield array(batch_X), array(batch_y).reshape(
+                                    self.batch_size, 1)
+                                batch_X = []
+                                batch_y = []
 
     def next_train_batch(self):
         '''
         :return: batch examples
         '''
         while 1:
-            for train_code in self.train_codes:
-                df = self.hd.get_history_data(code=train_code)
-                if df is not None and not df.empty:
-                    if len(
-                            df
-                    ) < self.time_step + self.batch_size + self.pred_day:
-                        continue
-                    i = 0
-                    batch_X = []
-                    batch_y = []
-                    ALL_X = df[self.feats].as_matrix().astype(float)
-                    ALL_y = df[[self.label_column]].as_matrix().astype(float)
+            for k, g in self.all_data:
+                if k in self.train_codes:
+                    if g is not None and not g.empty:
+                        if len(
+                                g
+                        ) < self.time_step + self.batch_size + self.pred_day:
+                            continue
+                        i = 0
+                        batch_X = []
+                        batch_y = []
+                        ALL_X = g[self.feats].as_matrix().astype(float)
+                        ALL_y = g[[self.label_column
+                                   ]].as_matrix().astype(float)
 
-                    while i < len(df) - self.pred_day - max(
-                            self.time_step, self.batch_size):
+                        while i < len(g) - self.pred_day - max(
+                                self.time_step, self.batch_size):
 
-                        X = ALL_X[i:i + self.time_step]
-                        y = ALL_y[i + self.time_step:
-                                  i + self.time_step + self.pred_day]
+                            X = ALL_X[i:i + self.time_step]
+                            y = ALL_y[i + self.time_step:
+                                      i + self.time_step + self.pred_day]
 
-                        batch_X.append(X)
-                        batch_y.append(y.max())
-                        i += 1
-                        if len(batch_y) == self.batch_size:
-                            yield array(batch_X), array(batch_y).reshape(
-                                self.batch_size, 1)
-                            batch_X = []
-                            batch_y = []
+                            batch_X.append(X)
+                            batch_y.append(y.max())
+                            i += 1
+                            if len(batch_y) == self.batch_size:
+                                yield array(batch_X), array(batch_y).reshape(
+                                    self.batch_size, 1)
+                                batch_X = []
+                                batch_y = []
 
 
 if __name__ == '__main__':

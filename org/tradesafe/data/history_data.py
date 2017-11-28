@@ -92,10 +92,14 @@ class HistoryData(object):
         return None
 
     def get_history_data_all(self, ktype='D', startDate=None, endDate=None):
-        conn = db.get_history_data_db(ktype)
+        # conn = db.get_history_data_db(ktype)
         try:
-            df = pd.read_sql_query(config.sql_history_data_by_date_between % (startDate, endDate), conn)
-            df = df.set_index(df['date'])
+            if not startDate:
+                startDate = '2010-01-01'
+            if not endDate:
+                endDate = datetime.now().strftime('%Y-%m-%d')
+            df = pd.read_sql_query(config.sql_history_data_by_date_between % (startDate, endDate), self.history_data_db_conn)
+            # df = df.set_index(df['date'])
             return df
         except Exception as e:
             self.log.error(e)

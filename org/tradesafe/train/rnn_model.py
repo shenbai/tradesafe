@@ -10,7 +10,6 @@ import sys, os
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from dataGenerator import DataGen
 from keras.models import load_model
 from keras.utils import CustomObjectScope
 from keras.callbacks import ModelCheckpoint
@@ -63,7 +62,7 @@ def main():
     codes = hd.get_all_stock_code()
     dg = DataGen(codes, batch_size=64, time_step=15, pred_day=5, column_names=names)
 
-    model = create_model(time_setp=dg.time_step, dim=dg.dim)
+    model = create_model(timestep=dg.time_step, dim=dg.dim)
     print(model.summary())
     train(model, dg)
     
