@@ -76,6 +76,14 @@ CREATE TABLE all_index (
 TABLE_MONEY_FLOW = '''
 
 '''
+TABLE_HISTORY_DATA_DAY = '''
+CREATE TABLE predict (
+  date text,
+  code text,
+  predict real
+  PRIMARY KEY(date, code)
+);
+'''
 
 sql_last_date_index_all = 'select date from all_index order by date([date]) desc limit 1'
 sql_last_date_history_data = 'select date from history_data order by date([date]) desc limit 1'
