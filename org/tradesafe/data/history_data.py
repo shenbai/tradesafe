@@ -90,6 +90,23 @@ class HistoryData(object):
         except Exception as e:
             self.log.info(e)
         return None
+    
+    def get_history_data_one_day(self, ktype='D', code=None, kdate=None):
+        '''
+        从sqlite中加载历史k线数据
+        '''
+
+        # conn = db.get_history_data_db(ktype)
+        try:
+            if not kdate:
+                kdate = datetime.now().strftime('%Y-%m-%d')
+            df = pd.read_sql_query(config.sql_history_data_by_code_date % (
+                code, kdate), self.history_data_db_conn)
+            df = df.set_index(df['date'])
+            return df
+        except Exception as e:
+            self.log.info(e)
+        return None
 
     def get_history_data_all(self, ktype='D', startDate=None, endDate=None):
         # conn = db.get_history_data_db(ktype)

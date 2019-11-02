@@ -46,7 +46,8 @@ def read_last_state(name='state'):
         for line in open('state', 'r'):
             arr = line.strip().split(',')
             code = arr[0]
-            dt = arr[1].replace('-', '')
+            # dt = arr[1].replace('-', '')
+            dt = arr[1]
             if code in stat:
                 if dt > stat[code]:
                     stat[code] = dt

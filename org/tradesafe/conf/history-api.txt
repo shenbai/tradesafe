@@ -2,3 +2,11 @@
 http://table.finance.yahoo.com/table.csv?s=000001.sz
 上交所:
 http://table.finance.yahoo.com/table.csv?s=600000.ss
+
+分钟
+https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20_sz002461_60_1572100391426=/CN_MarketDataService.getKLineData?symbol=sz002461&scale=60&ma=no&datalen=1023
+历史
+d 天 m月 w周
+http://q.stock.sohu.com/hisHq?code=cn_000063&start=20190613&end=20191025&stat=1&order=D&period=d&rt=jsonp
+分价表
+http://market.finance.sina.com.cn/pricehis.php?symbol=sh601006&startdate=2016-10-27&enddate=2016-10-28

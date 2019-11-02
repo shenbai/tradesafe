@@ -54,11 +54,15 @@ class DataGen(object):
 
         self.hd = HistoryData()
         mylog.info('loading all data')
-        df = self.hd.get_history_data_all()
-        df = df.sort_values(by=sort_by)
-        dfg = df.groupby(by=group_by)
-        self.all_data = dfg
+        # df = self.hd.get_history_data_all()
+        # df = df.sort_values(by=sort_by)
+        # dfg = df.groupby(by=group_by)
+        # self.all_data = dfg
         mylog.info('data load complete')
+
+    def set_data(self, data_df):
+        mylog.info('set data')
+        self.all_data = data_df
 
     def next_val_batch(self):
         '''
@@ -78,6 +82,7 @@ class DataGen(object):
                         ALL_X = g[self.feats].as_matrix().astype(float)
                         ALL_y = g[[self.label_column
                                    ]].as_matrix().astype(float)
+                        All_close = g[['close']].as_matrix().astype(float)
                         batch_y_ = []
 
                         while i < len(g) - self.pred_day - max(
@@ -86,9 +91,9 @@ class DataGen(object):
                             X = ALL_X[i:i + self.time_step]
                             y = ALL_y[i + self.time_step:
                                       i + self.time_step + self.pred_day]
-                            y_today = ALL_y[i + self.time_step]
+                            y_today = All_close[i + self.time_step - 1]
                             batch_X.append(X)
-                            batch_y.append((y.max() - y_today) / y_today)
+                            batch_y.append(y.max())
                             batch_y_.append(y.max())
                             i += 1
                             if len(batch_y) == self.batch_size:
@@ -115,6 +120,8 @@ class DataGen(object):
                         ALL_X = g[self.feats].as_matrix().astype(float)
                         ALL_y = g[[self.label_column
                                    ]].as_matrix().astype(float)
+                        
+                        All_close = g[['close']].as_matrix().astype(float)
 
                         while i < len(g) - self.pred_day - max(
                                 self.time_step, self.batch_size):
@@ -122,9 +129,9 @@ class DataGen(object):
                             X = ALL_X[i:i + self.time_step]
                             y = ALL_y[i + self.time_step:
                                       i + self.time_step + self.pred_day]
-                            y_today = ALL_y[i + self.time_step]
+                            y_today = All_close[i + self.time_step - 1]
                             batch_X.append(X)
-                            batch_y.append((y.max() - y_today) / y_today)
+                            batch_y.append(y.max())
                             i += 1
                             if len(batch_y) == self.batch_size:
                                 yield array(batch_X), array(batch_y).reshape(
@@ -133,17 +140,20 @@ class DataGen(object):
                                 batch_y = []
 
 
-def next_predict_example(self):
+    def next_predict_example(self):
         '''
         :return: batch examples
         '''
         for k, g in self.all_data:
             if g is not None and not g.empty:
+                if len(g) < self.time_step:
+                    continue
                 batch_X = []
                 ALL_X = g[self.feats].as_matrix().astype(float)
+                dt = g.date.iloc[-1]
                 X = ALL_X[0-self.time_step:]
                 batch_X.append(X)
-                yield k, array(batch_X)
+                yield dt, k, array(batch_X)
                 batch_X = []
 
 if __name__ == '__main__':

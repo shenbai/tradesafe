@@ -36,6 +36,7 @@ def create_model(timestep=10, dim=100):
         optimizer='rmsprop',
         loss=losses.mean_squared_error,
         metrics=[metrics.mae, metrics.mape, metrics.mse])
+    
     return model
 
 def train(model, data_generator):
